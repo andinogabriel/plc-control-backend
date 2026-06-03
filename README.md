@@ -55,6 +55,69 @@ flowchart TD
 | Cooler              | Actuador físico de ventilación                                                        |
 | Sensor DHT          | Fuente de medición de temperatura y humedad                                           |
 
+## Casos de uso
+
+```mermaid
+flowchart LR
+    Admin([Administrador])
+    RPi([Raspberry / Gateway])
+
+    subgraph Sistema
+        UC1[Configurar umbrales e intervalo]
+        UC2[Ver estado actual]
+        UC3[Consultar historial de mediciones]
+        UC4[Consultar historial de configuraciones]
+        UC5[Publicar medición]
+        UC6[Obtener configuración activa]
+    end
+
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC3
+    Admin --> UC4
+    RPi --> UC5
+    RPi --> UC6
+```
+
+| Caso de uso                            | Actor         | Descripción                                                                 | Endpoint                  |
+| -------------------------------------- | ------------- | --------------------------------------------------------------------------- | ------------------------- |
+| Configurar umbrales e intervalo        | Administrador | Define tempMin/Max, humMin/Max, histéresis e intervalo de medición          | `POST /api/config`        |
+| Ver estado actual                      | Administrador | Consulta la última medición y la configuración activa                       | `GET /api/measurements/latest`, `GET /api/config/latest` |
+| Consultar historial de mediciones      | Administrador | Lista y filtra mediciones (fecha, estado, rangos, cooler)                   | `GET /api/measurements`   |
+| Consultar historial de configuraciones | Administrador | Audita los cambios de umbrales (quién, cuándo, valores)                     | `GET /api/config/history` |
+| Obtener configuración activa           | Raspberry     | Lee los umbrales e intervalo vigentes para aplicar el control               | `GET /api/config/latest`  |
+| Publicar medición                      | Raspberry     | Envía la lectura del sensor y el estado calculado del cooler                | `POST /api/measurements`  |
+
+### Detalle: configurar umbrales (Administrador)
+
+```text
+Actor:          Administrador
+Precondición:   El backend y MongoDB están disponibles.
+Flujo principal:
+  1. El administrador abre la pantalla de Configuración en el frontend.
+  2. Carga umbrales, histéresis e intervalo de medición.
+  3. El frontend valida (espejo del backend) y envía POST /api/config.
+  4. El backend valida, desactiva la config anterior y guarda la nueva como activa.
+  5. Queda registrada la auditoría (nombre, email, IP, user-agent, fecha).
+Flujos alternativos:
+  - Datos inválidos -> 400 con mensajes en español.
+  - Demasiadas solicitudes -> 429 (rate limiting).
+```
+
+### Detalle: publicar medición (Raspberry)
+
+```text
+Actor:          Raspberry / Gateway
+Precondición:   Existe una configuración activa.
+Flujo principal:
+  1. La Raspberry obtiene la config activa (GET /api/config/latest).
+  2. Lee el sensor DHT y aplica la lógica de control (histéresis).
+  3. Acciona el relay/cooler según el resultado.
+  4. Publica la medición (POST /api/measurements) con el estado calculado.
+  5. El backend persiste la medición en el historial.
+Frecuencia:     cada measurementIntervalSeconds (configurable, por defecto 30 s).
+```
+
 ## Flujo principal del sistema
 
 ```text
@@ -186,46 +249,68 @@ Si temperatura <= temperatureMax - hysteresisTemperature
 y humedad <= humidityMax - hysteresisHumidity → apagar cooler.
 ```
 
-## Stack
+## Máquina de estados
 
-* Java 25
-* Spring Boot 3.5
-* Spring Web
-* Spring Validation
-* Spring Data MongoDB
-* MongoDB 7
-* Gradle Kotlin DSL
-* Lombok
-* MapStruct
-* Apache Commons Lang3
-* springdoc-openapi
-* Rate limiting en memoria
+### Ciclo de control (Raspberry / Gateway)
 
-## Estructura del proyecto
+Estado global del bucle que corre en la Raspberry.
 
-```text
-src/main/java/com/control/system/
-├── ControlSystemApplication.java
-├── domain/
-│   ├── entity/        # Config, Measurement
-│   └── enums/         # SystemStatus
-├── mapping/           # Mappers MapStruct
-├── repository/
-│   ├── *Repository
-│   ├── *RepositoryImpl
-│   ├── filter/
-│   └── support/
-├── service/           # Lógica de negocio
-├── web/
-│   ├── controller/    # REST controllers
-│   ├── dto/
-│   │   ├── request/
-│   │   └── response/
-│   └── exception/
-└── infrastructure/
-    ├── config/        # CORS, OpenAPI
-    ├── ratelimit/     # Rate limiting en memoria
-    └── web/           # Filtros HTTP y resolución de cliente
+```mermaid
+stateDiagram-v2
+    [*] --> Inicializando
+    Inicializando --> ObteniendoConfig: arranque
+
+    ObteniendoConfig --> LeyendoSensor: config activa obtenida
+    ObteniendoConfig --> ErrorConfig: sin conexión / sin config activa
+
+    LeyendoSensor --> Evaluando: lectura válida
+    LeyendoSensor --> ErrorSensor: fallo de lectura DHT
+
+    Evaluando --> Enfriando: supera umbral (relay ON)
+    Evaluando --> Reposo: dentro de rango (relay OFF)
+    Evaluando --> Enfriando: banda muerta y venía enfriando
+    Evaluando --> Reposo: banda muerta y venía en reposo
+
+    Enfriando --> Publicando
+    Reposo --> Publicando
+    ErrorSensor --> Publicando: status CRITICAL / SENSOR_ERROR
+
+    Publicando --> Esperando: POST /api/measurements
+    ErrorConfig --> Esperando: reintento
+
+    Esperando --> ObteniendoConfig: pasó measurementIntervalSeconds
+```
+
+### Sensor DHT
+
+```mermaid
+stateDiagram-v2
+    [*] --> LecturaOK
+    LecturaOK --> LecturaOK: lectura válida
+    LecturaOK --> Error: timeout / CRC inválido
+    Error --> LecturaOK: lectura válida
+    Error --> Error: sigue fallando (SENSOR_ERROR)
+```
+
+### Relay / Cooler
+
+```mermaid
+stateDiagram-v2
+    [*] --> Apagado
+    Apagado --> Encendido: temp >= tempMax o hum >= humMax
+    Encendido --> Apagado: temp <= tempMax - histTemp y hum <= humMax - histHum
+    Encendido --> Encendido: dentro de la banda muerta (histéresis)
+    Apagado --> Apagado: dentro de la banda muerta (histéresis)
+```
+
+### OpenPLC
+
+```mermaid
+stateDiagram-v2
+    [*] --> EsperandoDatos
+    EsperandoDatos --> Evaluando: recibe registros Modbus (temp, hum, umbrales)
+    Evaluando --> SalidaActualizada: calcula COOLER_ON / SENSOR_ERROR
+    SalidaActualizada --> EsperandoDatos: el gateway lee los coils
 ```
 
 ## Modelo de configuración
@@ -304,48 +389,6 @@ Ejemplo:
 }
 ```
 
-## Endpoints
-
-### Configuración
-
-| Método | Ruta                  | Descripción                                      |
-| ------ | --------------------- | ------------------------------------------------ |
-| POST   | `/api/config`         | Crea una nueva configuración activa              |
-| GET    | `/api/config/latest`  | Obtiene la configuración activa actual           |
-| GET    | `/api/config/history` | Obtiene el historial paginado de configuraciones |
-
-Filtros disponibles:
-
-```text
-/api/config/history?from=&to=&createdByName=&createdByEmail=&temperatureMin=&temperatureMax=&humidityMin=&humidityMax=&page=&size=&sort=
-```
-
-### Mediciones
-
-| Método | Ruta                       | Descripción                  |
-| ------ | -------------------------- | ---------------------------- |
-| POST   | `/api/measurements`        | Registra una nueva medición  |
-| GET    | `/api/measurements/latest` | Obtiene la última medición   |
-| GET    | `/api/measurements`        | Obtiene mediciones paginadas |
-
-Filtros disponibles:
-
-```text
-/api/measurements?from=&to=&status=&temperatureMin=&temperatureMax=&humidityMin=&humidityMax=&coolerOn=&page=&size=&sort=
-```
-
-## Dashboard
-
-No hay un endpoint dedicado de dashboard. La vista principal del frontend se **compone en el
-cliente** a partir de los endpoints existentes:
-
-* `GET /api/measurements/latest` — última medición (temperatura, humedad, cooler, estado).
-* `GET /api/config/latest` — configuración activa (umbrales e intervalo).
-* `GET /api/measurements` — listado reciente para los gráficos.
-
-Esto mantiene el backend más simple (sin un DTO de agregación específico) y deja que el
-frontend decida cómo presentar la información.
-
 ## Seguridad y anti-abuso
 
 El backend incluye validaciones y límites básicos para evitar abuso de los endpoints públicos.
@@ -361,26 +404,6 @@ Protecciones implementadas:
 * CORS restringido a los orígenes configurados.
 
 El objetivo no es implementar autenticación completa, sino proteger una API pública simple contra spam o uso abusivo durante la demo del sistema.
-
-## Validaciones principales
-
-### Configuración
-
-* `temperatureMin` debe ser menor que `temperatureMax`.
-* `humidityMin` debe ser menor que `humidityMax`.
-* `hysteresisTemperature` debe ser mayor a 0.
-* `hysteresisHumidity` debe ser mayor a 0.
-* La temperatura debe estar en un rango razonable.
-* La humedad debe estar entre 0 y 100.
-* `createdByName` y `createdByEmail` son obligatorios.
-
-### Mediciones
-
-* `temperature` es obligatoria.
-* `humidity` es obligatoria.
-* `humidity` debe estar entre 0 y 100.
-* `coolerOn` indica el estado calculado del actuador.
-* `status` representa el estado general del sistema.
 
 ## Ejecutar con Docker
 
@@ -414,52 +437,17 @@ docker compose down -v
 docker compose up --build
 ```
 
-## Ejecutar sin Docker
-
-### 1. Levantar MongoDB
-
-```bash
-docker compose up -d mongodb
-```
-
-### 2. Ejecutar la aplicación
-
-```bash
-./gradlew bootRun
-```
-
-En Windows:
-
-```bash
-.\gradlew.bat bootRun
-```
-
-La API queda disponible en:
-
-```text
-http://localhost:8080
-```
-
-## Variables de entorno
-
-| Variable       | Default                                   | Descripción                            |
-| -------------- | ----------------------------------------- | -------------------------------------- |
-| `MONGODB_URI`  | `mongodb://localhost:27017/controlsystem` | Cadena de conexión de MongoDB          |
-| `CORS_ORIGINS` | `http://localhost:5173`                   | Orígenes permitidos separados por coma |
-
 ## Documentación de la API
 
-Swagger UI queda disponible en:
+La referencia completa de endpoints (rutas, parámetros, filtros, esquemas de request/response
+y códigos de estado) está documentada con **OpenAPI/Swagger**, generada desde el código:
 
 ```text
-http://localhost:8080/swagger-ui.html
+Swagger UI:        http://localhost:8080/swagger-ui.html
+Especificación:    http://localhost:8080/api-docs
 ```
 
-Ejemplos de requests y responses:
-
-```text
-docs/examples.http
-```
+Ejemplos rápidos de requests y responses: `docs/examples.http`.
 
 ## Estado del proyecto
 

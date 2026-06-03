@@ -1,5 +1,7 @@
 package com.control.system.web.dto.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.Instant;
 
 /**
@@ -10,6 +12,7 @@ import java.time.Instant;
  * @param hysteresisHumidity    dead-band (percentage points) around the humidity thresholds,
  *                              with the same anti-chatter purpose.
  */
+@Schema(description = "Configuración persistida, con metadata de auditoría")
 public record ConfigResponse(
     String id,
     double temperatureMin,

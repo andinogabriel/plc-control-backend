@@ -6,11 +6,17 @@ import com.control.system.web.dto.request.ConfigHistoryQuery;
 import com.control.system.web.dto.request.ConfigRequest;
 import com.control.system.web.dto.response.ConfigResponse;
 import com.control.system.web.dto.response.PageResponse;
+import com.control.system.web.exception.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -25,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/config")
 @RequiredArgsConstructor
-@Tag(name = "Configuration", description = "Threshold configuration management")
+@Tag(name = "Configuración", description = "Gestión de umbrales, histéresis e intervalo de medición (historial versionado y auditado)")
 public class ConfigController {
 
     private final ConfigService configService;
@@ -33,7 +39,20 @@ public class ConfigController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a new configuration (becomes the active one)")
+    @Operation(
+        summary = "Crear una nueva configuración",
+        description = "Crea una configuración nueva y la marca como activa, desactivando la anterior. "
+            + "Registra metadata de auditoría (nombre, email, IP, user-agent)."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Configuración creada y marcada como activa"),
+        @ApiResponse(responseCode = "400", description = "Body inválido o reglas cruzadas (min >= max)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "413", description = "Body demasiado grande",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Límite de solicitudes excedido (rate limiting)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
     public ConfigResponse createConfig(
         @Valid @RequestBody final ConfigRequest request,
         final HttpServletRequest httpRequest
@@ -44,16 +63,25 @@ public class ConfigController {
     }
 
     @GetMapping("/latest")
-    @Operation(summary = "Get the current active configuration")
+    @Operation(summary = "Obtener la configuración activa",
+        description = "Devuelve la configuración marcada como activa más reciente.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Configuración activa"),
+        @ApiResponse(responseCode = "404", description = "No hay configuración activa",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    })
     public ConfigResponse getLatestConfig() {
         return configService.getLatestConfig();
     }
 
     @GetMapping("/history")
-    @Operation(summary = "Get paginated configuration history with optional column filters")
+    @Operation(summary = "Historial de configuraciones (paginado)",
+        description = "Lista el historial con filtros opcionales por fecha, nombre, email y rangos de umbrales. "
+            + "Soporta paginación y ordenamiento estándar de Spring (page, size, sort).")
+    @ApiResponse(responseCode = "200", description = "Página de configuraciones")
     public PageResponse<ConfigResponse> getConfigHistory(
-        final ConfigHistoryQuery query,
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) final Pageable pageable
+        @ParameterObject final ConfigHistoryQuery query,
+        @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) final Pageable pageable
     ) {
         return configService.searchConfigHistory(query.toSearchFilter(), pageable);
     }
