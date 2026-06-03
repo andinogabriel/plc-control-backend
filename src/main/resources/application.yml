@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: control-system-backend
+  messages:
+    basename: messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/controlsystem}
+      database: controlsystem
+
+server:
+  port: 8080
+  tomcat:
+    # Hard backstops at the container level (defense in depth, in addition to RequestSizeFilter).
+    max-http-form-post-size: 16KB
+    max-swallow-size: 16KB
+  max-http-request-header-size: 8KB
+
+app:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  request:
+    # Any request body larger than this (Content-Length) is rejected with 413.
+    max-body-bytes: ${MAX_BODY_BYTES:8192}
+  rate-limit:
+    blacklist-duration-minutes: ${RL_BLACKLIST_MINUTES:15}
+    # Global ceiling per IP across ALL /api endpoints. This is the primary protection
+    # against accidental polling storms or malicious flooding driving up host costs.
+    global:
+      max-requests: 100
+      window-seconds: 60
+      blacklist-threshold: 300
+    # POST /api/config is the most expensive write path (audited, deactivates others).
+    config-per-ip:
+      max-requests: 10
+      window-seconds: 60
+      blacklist-threshold: 30
+    config-per-email:
+      max-requests: 5
+      window-seconds: 60
+      blacklist-threshold: 0
+    config-per-fingerprint:
+      max-requests: 5
+      window-seconds: 300
+      blacklist-threshold: 0
+    # POST /api/measurements is the Raspberry's path (~1 every 10s = 6/min); 30 is generous.
+    measurement-per-ip:
+      max-requests: 30
+      window-seconds: 60
+      blacklist-threshold: 120
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.control.system: DEBUG

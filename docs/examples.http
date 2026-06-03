@@ -1,0 +1,88 @@
+### Crear configuración (POST) -> 201 Created
+POST http://localhost:8080/api/config
+Content-Type: application/json
+
+{
+  "createdByName": "Gabriel",
+  "createdByEmail": "gabriel@example.com",
+  "temperatureMin": 18,
+  "temperatureMax": 26,
+  "humidityMin": 30,
+  "humidityMax": 60,
+  "hysteresisTemperature": 1.5,
+  "hysteresisHumidity": 2.0,
+  "deviceFingerprint": "abc123-browser-fp"
+}
+
+# Respuesta 201:
+# {
+#   "id": "665c...",
+#   "temperatureMin": 18.0, "temperatureMax": 26.0,
+#   "humidityMin": 30.0, "humidityMax": 60.0,
+#   "hysteresisTemperature": 1.5, "hysteresisHumidity": 2.0,
+#   "createdByName": "Gabriel", "createdByEmail": "gabriel@example.com",
+#   "clientIp": "127.0.0.1", "userAgent": "...", "deviceFingerprint": "abc123-browser-fp",
+#   "active": true, "createdAt": "2026-06-02T12:00:00Z"
+# }
+
+### Error de validación cruzada (min >= max) -> 400
+POST http://localhost:8080/api/config
+Content-Type: application/json
+
+{
+  "createdByName": "Test",
+  "createdByEmail": "test@example.com",
+  "temperatureMin": 30,
+  "temperatureMax": 20,
+  "humidityMin": 30,
+  "humidityMax": 60,
+  "hysteresisTemperature": 1.5,
+  "hysteresisHumidity": 2.0
+}
+
+# Respuesta 400 (mensajes en espanol desde messages.properties):
+# { "status": 400, "error": "Solicitud Incorrecta",
+#   "message": "La temperatura minima debe ser estrictamente menor que la maxima", ... }
+
+### Config activa actual -> 200
+GET http://localhost:8080/api/config/latest
+
+### Historial de config paginado -> 200
+GET http://localhost:8080/api/config/history?page=0&size=10
+
+### Historial de config con filtros de columna -> 200
+# createdByName/Email: contains, sin distinguir mayusculas ni acentos ("gabriel" matchea "Gabriel Andino").
+# temperatureMin/Max, humidityMin/Max: match exacto sobre el valor guardado.
+GET http://localhost:8080/api/config/history?from=2026-06-01T00:00:00Z&to=2026-06-30T23:59:59Z&createdByName=gabriel&createdByEmail=gabriel@example.com&temperatureMin=18&page=0&size=10&sort=createdAt,desc
+
+### Registrar medición (desde la Raspberry) -> 201
+POST http://localhost:8080/api/measurements
+Content-Type: application/json
+
+{
+  "temperature": 24.3,
+  "humidity": 45.1,
+  "coolerOn": false,
+  "relayOn": false,
+  "status": "NORMAL"
+}
+
+### Última medición -> 200
+GET http://localhost:8080/api/measurements/latest
+
+### Mediciones paginadas -> 200
+GET http://localhost:8080/api/measurements?page=0&size=20&sort=createdAt,desc
+
+### Mediciones filtradas por fecha y estado -> 200
+GET http://localhost:8080/api/measurements?from=2026-06-01T00:00:00Z&to=2026-06-30T23:59:59Z&status=CRITICAL&page=0&size=20
+
+### Mediciones filtradas por rango de temperatura/humedad y cooler -> 200
+# temperatureMin/Max y humidityMin/Max son rangos inclusivos; coolerOn es true/false.
+GET http://localhost:8080/api/measurements?temperatureMin=20&temperatureMax=28&humidityMin=40&humidityMax=60&coolerOn=false&page=0&size=20
+
+### Body demasiado grande -> 413 Payload Too Large
+# Cualquier POST con Content-Length > app.request.max-body-bytes (8192) es rechazado.
+
+### Rate limit excedido -> 429 (repetir POST /api/config muchas veces)
+# { "status": 429, "error": "Demasiadas Solicitudes",
+#   "message": "Demasiadas solicitudes. Intenta nuevamente en unos instantes", ... }
