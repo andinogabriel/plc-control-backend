@@ -28,7 +28,7 @@ flowchart TD
     User[Usuario] --> Web[Frontend React]
 
     Web -->|POST /api/config| API[Backend Spring Boot]
-    Web -->|GET dashboard / historial| API
+    Web -->|GET última medición / historial| API
 
     API --> DB[(MongoDB)]
 
@@ -283,16 +283,23 @@ frontend junto con los umbrales y queda auditado (quién lo cambió y cuándo).
 
 Cada medición representa una lectura enviada por la Raspberry.
 
+El campo `status` es un enum (`SystemStatus`) con los valores:
+
+* `NORMAL` — temperatura y humedad dentro de rango.
+* `WARNING_TEMP` — temperatura fuera de umbral.
+* `WARNING_HUMIDITY` — humedad fuera de umbral.
+* `CRITICAL` — fuera de umbral más allá de la histéresis.
+
 Ejemplo:
 
 ```json
 {
   "id": "665f1d...",
-  "temperature": 25.4,
+  "temperature": 29.1,
   "humidity": 78.2,
   "coolerOn": true,
   "relayOn": true,
-  "status": "COOLING",
+  "status": "WARNING_TEMP",
   "createdAt": "2026-06-03T12:05:00Z"
 }
 ```
@@ -310,17 +317,16 @@ Ejemplo:
 Filtros disponibles:
 
 ```text
-/api/config/history?from=&to=&createdByName=&createdByEmail=&page=&size=&sort=
+/api/config/history?from=&to=&createdByName=&createdByEmail=&temperatureMin=&temperatureMax=&humidityMin=&humidityMax=&page=&size=&sort=
 ```
 
 ### Mediciones
 
-| Método | Ruta                          | Descripción                               |
-| ------ | ----------------------------- | ----------------------------------------- |
-| POST   | `/api/measurements`           | Registra una nueva medición               |
-| GET    | `/api/measurements/latest`    | Obtiene la última medición                |
-| GET    | `/api/measurements`           | Obtiene mediciones paginadas              |
-| GET    | `/api/measurements/dashboard` | Obtiene datos resumidos para el dashboard |
+| Método | Ruta                       | Descripción                  |
+| ------ | -------------------------- | ---------------------------- |
+| POST   | `/api/measurements`        | Registra una nueva medición  |
+| GET    | `/api/measurements/latest` | Obtiene la última medición   |
+| GET    | `/api/measurements`        | Obtiene mediciones paginadas |
 
 Filtros disponibles:
 
@@ -330,30 +336,15 @@ Filtros disponibles:
 
 ## Dashboard
 
-El endpoint de dashboard devuelve la información necesaria para la vista principal del frontend.
+No hay un endpoint dedicado de dashboard. La vista principal del frontend se **compone en el
+cliente** a partir de los endpoints existentes:
 
-Ejemplo de respuesta:
+* `GET /api/measurements/latest` — última medición (temperatura, humedad, cooler, estado).
+* `GET /api/config/latest` — configuración activa (umbrales e intervalo).
+* `GET /api/measurements` — listado reciente para los gráficos.
 
-```json
-{
-  "latestMeasurement": {
-    "temperature": 25.4,
-    "humidity": 78.2,
-    "coolerOn": true,
-    "status": "COOLING",
-    "createdAt": "2026-06-03T12:05:00Z"
-  },
-  "activeConfig": {
-    "temperatureMin": 22.0,
-    "temperatureMax": 28.0,
-    "humidityMin": 40.0,
-    "humidityMax": 90.0,
-    "hysteresisTemperature": 1.0,
-    "hysteresisHumidity": 2.0
-  },
-  "measurementsLast24h": []
-}
-```
+Esto mantiene el backend más simple (sin un DTO de agregación específico) y deja que el
+frontend decida cómo presentar la información.
 
 ## Seguridad y anti-abuso
 
