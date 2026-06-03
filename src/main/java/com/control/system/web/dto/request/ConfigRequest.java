@@ -3,6 +3,8 @@ package com.control.system.web.dto.request;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -19,6 +21,8 @@ import jakarta.validation.constraints.Size;
  *                              reading drops below {@code temperatureMax - hysteresisTemperature}.
  * @param hysteresisHumidity   dead-band (in percentage points) around the humidity thresholds,
  *                              applied with the same anti-chatter logic as the temperature one.
+ * @param measurementIntervalSeconds how often the Raspberry samples the sensor and publishes a
+ *                              measurement; versioned with the thresholds so it is auditable.
  */
 public record ConfigRequest(
 
@@ -60,6 +64,11 @@ public record ConfigRequest(
     @Positive(message = "{config.hysteresis.positive}")
     @DecimalMax(value = "20.0", message = "{config.hysteresis.max}")
     Double hysteresisHumidity,
+
+    @NotNull(message = "{config.measurementInterval.required}")
+    @Min(value = 5, message = "{config.measurementInterval.range}")
+    @Max(value = 3600, message = "{config.measurementInterval.range}")
+    Integer measurementIntervalSeconds,
 
     @Size(max = 200, message = "{config.deviceFingerprint.size}")
     String deviceFingerprint

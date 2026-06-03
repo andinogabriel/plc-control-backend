@@ -18,6 +18,7 @@ public record ConfigResponse(
     double humidityMax,
     double hysteresisTemperature,
     double hysteresisHumidity,
+    int measurementIntervalSeconds,
     String createdByName,
     String createdByEmail,
     String clientIp,

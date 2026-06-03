@@ -54,7 +54,7 @@ class ConfigServiceTest {
     void setUp() {
         validRequest = new ConfigRequest(
             "Gabriel Andino", "Gabriel@Example.com",
-            18.0, 26.0, 30.0, 60.0, 1.5, 2.0, "fp-123");
+            18.0, 26.0, 30.0, 60.0, 1.5, 2.0, 30, "fp-123");
     }
 
     @Test
@@ -80,7 +80,7 @@ class ConfigServiceTest {
     void createConfigRejectsTemperatureMinNotLessThanMax() {
         when(messages.get("config.temperature.ordering")).thenReturn("config.temperature.ordering");
         final ConfigRequest invalid = new ConfigRequest(
-            "X", "x@example.com", 30.0, 20.0, 30.0, 60.0, 1.5, 2.0, null);
+            "X", "x@example.com", 30.0, 20.0, 30.0, 60.0, 1.5, 2.0, 30, null);
 
         assertThatThrownBy(() -> configService.createConfig(invalid, "ip", "ua"))
             .isInstanceOf(IllegalArgumentException.class)
@@ -93,7 +93,7 @@ class ConfigServiceTest {
     void createConfigRejectsHumidityMinNotLessThanMax() {
         when(messages.get("config.humidity.ordering")).thenReturn("config.humidity.ordering");
         final ConfigRequest invalid = new ConfigRequest(
-            "X", "x@example.com", 18.0, 26.0, 70.0, 60.0, 1.5, 2.0, null);
+            "X", "x@example.com", 18.0, 26.0, 70.0, 60.0, 1.5, 2.0, 30, null);
 
         assertThatThrownBy(() -> configService.createConfig(invalid, "ip", "ua"))
             .isInstanceOf(IllegalArgumentException.class)

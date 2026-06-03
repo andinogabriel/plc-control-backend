@@ -1,293 +1,489 @@
 # Backend — Sistema de Control PLC
 
-Backend REST para un sistema de control de temperatura/humedad (Raspberry Pi 3B+ + sensor DHT + OpenPLC + relay + cooler).
-Java 25 · Spring Boot 3.5 · Spring Data MongoDB · arquitectura limpia por capas.
+Backend REST para un sistema de control de temperatura/humedad usando Raspberry Pi 3B+, sensor DHT, OpenPLC, relay, cooler, MongoDB y frontend React.
+
+Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por capas.
 
 ## Qué es y para qué sirve
 
-Es un sistema de **control de clima** (temperatura y humedad) para una sala/equipo, pensado
-como proyecto de **Teoría de Control** (UNCAUS, 2026). El objetivo es mantener la temperatura
-y la humedad dentro de umbrales configurables, encendiendo o apagando un **cooler** (vía un
-relay controlado por la Raspberry / OpenPLC) y registrando todo para auditarlo desde una web.
+Este backend forma parte de un sistema de control de clima desarrollado como proyecto de Teoría de Control.
 
-- El usuario define **umbrales** (mín/máx de temperatura y humedad) y la **histéresis** (banda
-  muerta que evita que el cooler prenda/apague constantemente cerca del límite).
-- La Raspberry **lee el sensor DHT**, decide el estado del cooler con esos umbrales y
-  **publica cada medición** en este backend.
-- El backend **persiste** configuraciones (versionadas, con auditoría de quién/cuándo) y
-  mediciones, y las expone por una **API REST** que consume el frontend.
+El objetivo del sistema es monitorear temperatura y humedad, permitir la configuración de umbrales desde una interfaz web y registrar el historial de mediciones y configuraciones.
 
-### Cómo se comporta el sistema
+El sistema completo utiliza:
 
-```mermaid
-flowchart LR
-  DHT[Sensor DHT<br/>temp + humedad] --> RPi[Raspberry Pi 3B+ / OpenPLC]
-  RPi -->|control con histéresis| Relay[Relay] --> Cooler[Cooler]
-  RPi -->|POST /api/measurements| API[Backend Spring Boot]
-  API <-->|lee config activa| API
-  RPi -->|GET /api/config/latest| API
-  API --> DB[(MongoDB)]
-  Web[Frontend React] -->|GET mediciones / config| API
-  Web -->|POST /api/config| API
-  Admin[Administrador] --> Web
-```
+* Raspberry Pi 3B+ para ejecutar la adquisición de datos.
+* Sensor DHT para medir temperatura y humedad.
+* OpenPLC como controlador lógico.
+* Relay para accionar el cooler.
+* Cooler como actuador de ventilación.
+* Spring Boot como API REST.
+* MongoDB como base de datos.
+* React como frontend de monitoreo y configuración.
 
-### Lógica de control (histéresis)
+## Arquitectura general
 
 ```mermaid
 flowchart TD
-  Read[Leer temperatura] --> Q{temp >= temperatureMax?}
-  Q -- Sí --> On[Cooler ON]
-  Q -- No --> Q2{temp <= temperatureMax - histéresis?}
-  Q2 -- Sí --> Off[Cooler OFF]
-  Q2 -- No --> Keep[Mantener estado anterior<br/>banda muerta]
-  On --> Pub[Publicar medición + estado]
-  Off --> Pub
-  Keep --> Pub
+    User[Usuario] --> Web[Frontend React]
+
+    Web -->|POST /api/config| API[Backend Spring Boot]
+    Web -->|GET dashboard / historial| API
+
+    API --> DB[(MongoDB)]
+
+    DHT[Sensor DHT<br/>Temperatura + Humedad] --> Python[Python Gateway<br/>Raspberry Pi]
+    Python -->|GET /api/config/latest| API
+    Python -->|POST /api/measurements| API
+
+    Python -->|Modbus TCP| OpenPLC[OpenPLC Runtime]
+    OpenPLC -->|Decisión de control| Python
+    Python --> Relay[Relay]
+    Relay --> Cooler[Cooler]
+```
+
+## Responsabilidad de cada componente
+
+| Componente          | Responsabilidad                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| Frontend React      | Permite configurar umbrales, visualizar estado actual, consultar historial y gráficos |
+| Spring Boot Backend | Expone la API REST, valida datos, persiste configuraciones y mediciones               |
+| MongoDB             | Guarda historial de configuraciones y mediciones                                      |
+| Python Gateway      | Lee el sensor DHT, consulta configuración activa y publica mediciones                 |
+| OpenPLC             | Ejecuta la lógica de control usando los valores recibidos                             |
+| Relay               | Actúa como interruptor eléctrico para el cooler                                       |
+| Cooler              | Actuador físico de ventilación                                                        |
+| Sensor DHT          | Fuente de medición de temperatura y humedad                                           |
+
+## Flujo principal del sistema
+
+```text
+1. El usuario ingresa al frontend React.
+2. Configura umbrales de temperatura y humedad.
+3. React envía la configuración al backend mediante POST /api/config.
+4. Spring Boot valida y guarda la configuración activa en MongoDB.
+5. Python en la Raspberry consulta la configuración activa con GET /api/config/latest.
+6. Python lee temperatura y humedad desde el sensor DHT.
+7. Python envía los valores a OpenPLC mediante Modbus TCP.
+8. OpenPLC ejecuta la lógica de control.
+9. Python obtiene la decisión de OpenPLC y acciona el relay/cooler.
+10. Python publica la medición en Spring Boot mediante POST /api/measurements.
+11. React consulta dashboard e historial desde el backend.
+```
+
+## Qué hace el sistema (diagrama de secuencia)
+
+Este diagrama muestra el ciclo completo: el usuario define los umbrales (y el intervalo de
+medición) desde la web, la Raspberry los aplica y, cada cierto intervalo configurable, mide,
+decide si prende el cooler y publica la medición; todo queda persistido para auditoría e
+historial.
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario (admin)
+    participant FE as Frontend React
+    participant API as Backend Spring Boot
+    participant DB as MongoDB
+    participant RPi as Raspberry (Python + DHT)
+    participant HW as Relay + Cooler
+
+    Note over U,DB: 1) Configuración de umbrales (con auditoría)
+    U->>FE: Define tempMin/Max, humMin/Max, histéresis e intervalo
+    FE->>API: POST /api/config
+    API->>DB: Guarda config activa (quién, email, cuándo, IP)
+    API-->>FE: 201 Created
+
+    Note over RPi,HW: 2) Bucle de control en la Raspberry
+    loop cada measurementIntervalSeconds (ej. 30 s)
+        RPi->>API: GET /api/config/latest
+        API-->>RPi: Umbrales + histéresis + intervalo
+        RPi->>RPi: Lee sensor DHT (temperatura, humedad)
+        alt supera umbral (aplicando histéresis)
+            RPi->>HW: Enciende cooler (relay ON)
+        else dentro de rango
+            RPi->>HW: Apaga cooler (relay OFF)
+        end
+        RPi->>API: POST /api/measurements (temp, hum, coolerOn, status)
+        API->>DB: Persiste la medición (historial)
+    end
+
+    Note over U,DB: 3) Monitoreo y auditoría
+    U->>FE: Abre dashboard / historial
+    FE->>API: GET /api/measurements, /api/config/history
+    API->>DB: Consulta
+    API-->>FE: Datos
+    FE-->>U: Estado actual, gráficos e historial de cambios
+```
+
+## Rol de OpenPLC
+
+OpenPLC se utiliza como controlador lógico del sistema.
+
+No se conecta directamente a MongoDB. La integración se realiza mediante un gateway en Python que actúa como puente entre:
+
+```text
+Sensor DHT / Spring Boot API / OpenPLC / Relay
+```
+
+OpenPLC recibe valores como temperatura actual, humedad actual y umbrales configurados. A partir de esos datos, ejecuta la lógica de control y determina si el cooler debe estar encendido o apagado.
+
+## Integración con Modbus TCP
+
+La comunicación entre Python y OpenPLC se realiza mediante Modbus TCP.
+
+Mapa de registros sugerido:
+
+| Registro | Variable        | Descripción                            |
+| -------- | --------------- | -------------------------------------- |
+| HR0      | TEMP_ACTUAL_X10 | Temperatura actual multiplicada por 10 |
+| HR1      | HUM_ACTUAL_X10  | Humedad actual multiplicada por 10     |
+| HR2      | TEMP_MIN_X10    | Umbral mínimo de temperatura           |
+| HR3      | TEMP_MAX_X10    | Umbral máximo de temperatura           |
+| HR4      | HUM_MIN_X10     | Umbral mínimo de humedad               |
+| HR5      | HUM_MAX_X10     | Umbral máximo de humedad               |
+| HR6      | TEMP_HYST_X10   | Histéresis de temperatura              |
+| HR7      | HUM_HYST_X10    | Histéresis de humedad                  |
+
+| Coil | Variable     | Descripción                        |
+| ---- | ------------ | ---------------------------------- |
+| C0   | COOLER_ON    | Estado calculado del cooler        |
+| C1   | SENSOR_ERROR | Indica error de lectura del sensor |
+
+Se utilizan valores multiplicados por 10 para trabajar con enteros en Modbus.
+
+Ejemplo:
+
+```text
+25.3 °C → 253
+80.9 %  → 809
+```
+
+## Lógica de control
+
+La lógica de control utiliza histéresis para evitar que el relay active y desactive el cooler constantemente cerca del umbral.
+
+```mermaid
+flowchart TD
+    Read[Leer temperatura y humedad] --> CheckHigh{Temp >= TempMax<br/>o Hum >= HumMax?}
+
+    CheckHigh -- Sí --> CoolerOn[Cooler ON]
+    CheckHigh -- No --> CheckLow{Temp <= TempMax - HistTemp<br/>y Hum <= HumMax - HistHum?}
+
+    CheckLow -- Sí --> CoolerOff[Cooler OFF]
+    CheckLow -- No --> Keep[Mantener estado anterior]
+
+    CoolerOn --> Publish[Publicar medición]
+    CoolerOff --> Publish
+    Keep --> Publish
+```
+
+Regla general:
+
+```text
+Si temperatura >= temperatureMax → encender cooler.
+Si humedad >= humidityMax → encender cooler.
+Si temperatura <= temperatureMax - hysteresisTemperature
+y humedad <= humidityMax - hysteresisHumidity → apagar cooler.
 ```
 
 ## Stack
 
-- Java 25 (toolchain Gradle)
-- Spring Boot 3.5 (Web, Validation, Data MongoDB)
-- MongoDB 7
-- Lombok + MapStruct (mapeos entidad <-> DTO)
-- Apache Commons Lang3 (utilidades)
-- springdoc-openapi (Swagger UI)
-- Rate limiting en memoria (sin dependencias externas)
+* Java 25
+* Spring Boot 3.5
+* Spring Web
+* Spring Validation
+* Spring Data MongoDB
+* MongoDB 7
+* Gradle Kotlin DSL
+* Lombok
+* MapStruct
+* Apache Commons Lang3
+* springdoc-openapi
+* Rate limiting en memoria
 
-> Nota sobre versiones: al momento de escribir, la última línea estable de Spring Boot
-> que soporta Java 25 como toolchain es la 3.5.x. Si en tu entorno hay una versión más
-> nueva (p. ej. 4.x estable), basta con subir el número en `build.gradle.kts`.
+## Estructura del proyecto
 
-## Estructura
-
-```
+```text
 src/main/java/com/control/system/
 ├── ControlSystemApplication.java
 ├── domain/
-│   ├── entity/        # Config, Measurement (documentos Mongo, @Getter/@Setter)
+│   ├── entity/        # Config, Measurement
 │   └── enums/         # SystemStatus
-├── mapping/           # ConfigMapper, MeasurementMapper (MapStruct)
-│                      #   (los *MapperImpl los genera MapStruct en compilación)
+├── mapping/           # Mappers MapStruct
 ├── repository/
-│   ├── *Repository            # Spring Data + fragmento custom
-│   ├── *RepositoryImpl        # búsqueda dinámica con MongoTemplate + Criteria
-│   ├── filter/                # ConfigSearchFilter, MeasurementSearchFilter
-│   └── support/               # MongoQuerySupport (helpers reutilizables)
-├── service/           # ConfigService, MeasurementService (lógica de negocio)
+│   ├── *Repository
+│   ├── *RepositoryImpl
+│   ├── filter/
+│   └── support/
+├── service/           # Lógica de negocio
 ├── web/
-│   ├── controller/    # ConfigController, MeasurementController
+│   ├── controller/    # REST controllers
 │   ├── dto/
-│   │   ├── request/   # ConfigRequest, MeasurementRequest (validación)
-│   │   └── response/  # *Response, PageResponse
-│   └── exception/     # GlobalExceptionHandler, ErrorResponse
+│   │   ├── request/
+│   │   └── response/
+│   └── exception/
 └── infrastructure/
-    ├── config/        # CorsConfig, OpenApiConfig
-    ├── ratelimit/     # RateLimiter (interfaz) + impl sliding-window,
-    │                  #   RateLimitService (política), RateLimitProperties
-    ├── i18n/          # MessageResolver (wrapper de MessageSource)
-    ├── text/          # TextNormalizer (quita acentos + lower-case)
-    └── web/           # ClientIpResolver, RateLimitFilter, RequestSizeFilter, HttpErrorWriter
-
-resources/
-└── messages.properties   # todos los mensajes al cliente, en español (UTF-8)
+    ├── config/        # CORS, OpenAPI
+    ├── ratelimit/     # Rate limiting en memoria
+    └── web/           # Filtros HTTP y resolución de cliente
 ```
 
-### Mensajes al cliente (i18n)
+## Modelo de configuración
 
-Todos los textos que ve el cliente —errores de validación, reglas de negocio, 404, 429,
-413, 500— están centralizados en `src/main/resources/messages.properties` **en español**.
+Se utiliza historial versionado de configuración.
 
-- Las anotaciones de Bean Validation usan claves `{config.createdByEmail.invalid}`;
-  `ValidationConfig` cablea el validador al `MessageSource` para que resuelvan desde ese
-  bundle (en vez del `ValidationMessages.properties` por defecto de JSR-380).
-- Los services y el `GlobalExceptionHandler` resuelven vía `MessageResolver`.
-- `RateLimitException` lleva un **código** de mensaje, no el texto literal, así el idioma
-  queda en un solo lugar.
+Cada vez que se envía un POST a `/api/config`, se crea un nuevo documento de configuración y se marca como activo. Las configuraciones anteriores quedan desactivadas, pero no se eliminan.
 
-Para agregar inglés en el futuro: crear `messages_en.properties` y resolver el locale por
-header `Accept-Language`. La estructura ya lo soporta sin tocar código.
+Esto permite auditar:
 
-### Diseño SOLID de la capa anti-abuso
+* quién cambió los umbrales;
+* cuándo los cambió;
+* desde qué cliente;
+* cuáles eran los valores anteriores.
 
-- `RateLimiter` es una **interfaz** (DIP): la implementación en memoria
-  (`InMemorySlidingWindowRateLimiter`) se puede reemplazar por una de Redis/bucket4j sin
-  tocar a los llamadores.
-- `RateLimitService` define la **política** (qué bucket aplica a cada caso de uso) y no
-  sabe nada de HTTP.
-- `RateLimitFilter` aplica el techo global por IP a *todos* los endpoints; los límites por
-  caso de uso viven en los services.
-- Las búsquedas con filtros opcionales usan **fragmentos de repository custom** con
-  `MongoTemplate` + `Criteria`, evitando la explosión combinatoria de métodos derivados.
+Ejemplo:
 
-## Modelo de configuración: decisión de diseño
-
-Se eligió **historial versionado** en lugar de un único documento mutable:
-
-- Cada `POST /api/config` inserta un documento nuevo y lo marca `active = true`,
-  desactivando (`active = false`) todos los anteriores en una sola operación.
-- `GET /api/config/latest` devuelve el documento con `active = true` más reciente.
-- `GET /api/config/history` devuelve todo el historial paginado, con la metadata de
-  auditoría (IP, user-agent, email, fingerprint, timestamp).
-
-Ventaja para una defensa universitaria: la auditoría es trivial de mostrar (cada cambio
-queda registrado con quién/cuándo/desde dónde) y no se pierde información histórica.
-
-## Ejecutar con Docker (recomendado para probar)
-
-Todo el stack (Mongo + backend + mongo-express) en un comando:
-
-```bash
-docker compose up --build
+```json
+{
+  "id": "665f1c...",
+  "temperatureMin": 22.0,
+  "temperatureMax": 28.0,
+  "humidityMin": 40.0,
+  "humidityMax": 90.0,
+  "hysteresisTemperature": 1.0,
+  "hysteresisHumidity": 2.0,
+  "measurementIntervalSeconds": 30,
+  "createdByName": "Gabriel Andino",
+  "createdByEmail": "gabriel@example.com",
+  "clientIp": "192.168.1.10",
+  "userAgent": "Mozilla/5.0",
+  "deviceFingerprint": "optional-client-id",
+  "active": true,
+  "createdAt": "2026-06-03T12:00:00Z"
+}
 ```
 
-- API: `http://localhost:8080` · Swagger UI: `http://localhost:8080/swagger-ui.html`
-- mongo-express (UI de Mongo): `http://localhost:8081`
-- La primera vez, Mongo carga **datos de prueba** automáticamente (ver más abajo).
+### Intervalo de medición (configurable)
 
-El `Dockerfile` es multi-stage: compila con `gradle:9.1.0-jdk25` (Gradle 9.1 corre nativo
-sobre JDK 25) y corre sobre `eclipse-temurin:25-jre` como usuario no-root. No necesitás
-tener Gradle ni JDK instalados para levantarlo así.
+El campo `measurementIntervalSeconds` define **cada cuánto** la Raspberry lee el sensor y
+publica una medición. Es parte de la configuración versionada, así que se setea desde el
+frontend junto con los umbrales y queda auditado (quién lo cambió y cuándo).
 
-### Datos de prueba (seed)
+* **Valor por defecto:** 30 segundos.
+* **Rango permitido:** 5 a 3600 segundos (validado en el backend).
+* La Raspberry obtiene este valor en `GET /api/config/latest` y lo usa como cadencia de su
+  bucle. Al cambiarlo desde la web, la próxima vez que la Raspberry relea la config, ajusta
+  el intervalo sin necesidad de redeploy.
 
-`docker/mongo-init/seed.js` se ejecuta automáticamente cuando el volumen de Mongo está
-vacío (primer arranque). Carga:
+> Por qué configurable: un intervalo más corto da un historial más fino pero genera más
+> escritura/tráfico; uno más largo es más liviano. 30 s es un buen punto de equilibrio para
+> la demo. El mínimo de 5 s evita saturar el backend (y es coherente con el rate limiting).
 
-- **12 configuraciones** con nombres acentuados (`Andinó`, `Núñez`, `Pérez`...) repartidas
-  en el tiempo, la última marcada como activa — sirve para probar la tabla de historial,
-  los filtros (contains sin acentos) y el gráfico de evolución de umbrales.
-- **~336 mediciones** (7 días, una cada 30 min) con temperatura/humedad sinusoidal, picos
-  ocasionales y `status`/`coolerOn` derivados — pueblan el dashboard, la tabla y los gráficos.
+## Modelo de medición
 
-Reseed (borra el volumen y vuelve a cargar):
+Cada medición representa una lectura enviada por la Raspberry.
 
-```bash
-docker compose down -v && docker compose up --build
+Ejemplo:
+
+```json
+{
+  "id": "665f1d...",
+  "temperature": 25.4,
+  "humidity": 78.2,
+  "coolerOn": true,
+  "relayOn": true,
+  "status": "COOLING",
+  "createdAt": "2026-06-03T12:05:00Z"
+}
 ```
-
-Cargar el seed contra un Mongo ya corriendo (sin Docker):
-
-```bash
-mongosh "mongodb://localhost:27017/controlsystem" docker/mongo-init/seed.js
-```
-
-## Ejecutar sin Docker (desarrollo)
-
-### 1. Levantar solo MongoDB
-
-```bash
-docker compose up -d mongodb
-```
-
-### 2. Generar el wrapper de Gradle (solo la primera vez)
-
-```bash
-gradle wrapper --gradle-version 9.1.0
-```
-
-### 3. Ejecutar la app
-
-```bash
-./gradlew bootRun        # Linux/Mac
-.\gradlew.bat bootRun    # Windows
-```
-
-La API queda en `http://localhost:8080`.
-
-## Variables de entorno
-
-| Variable | Default | Descripción |
-| --- | --- | --- |
-| `MONGODB_URI` | `mongodb://localhost:27017/controlsystem` | Cadena de conexión |
-| `CORS_ORIGINS` | `http://localhost:5173` | Orígenes permitidos (coma-separados) |
-
-## Seguridad / anti-abuso
-
-Todos los límites son configurables en `application.yml` (`app.rate-limit.*`, `app.request.*`).
-Los valores por defecto están **tuneados pensando en un host pago chico** (p. ej. Render free,
-512 MB) con varios compañeros probando a la vez, para evitar el colapso del servidor o una
-factura inflada por abuso:
-
-| Protección | Límite por defecto | Por qué ese número |
-| --- | --- | --- |
-| **Techo global por IP** (todos los endpoints) | 100 req/min | Es la defensa principal contra el costo. Un tab navegando (polling cada 5 s) usa ~12/min, así que 100 deja margen pero corta floods. |
-| **POST /api/config por IP** | 10/min | Es el write más caro (auditado, desactiva otros). |
-| **POST /api/config por email** | 5/min | Frena spam del mismo usuario aunque rote de IP. |
-| **Cooldown por deviceFingerprint** | 5 cada 5 min | Frena reenvíos repetidos del mismo navegador. |
-| **POST /api/measurements por IP** | 30/min | La Raspberry manda ~6/min (1 cada 10 s); 30 es holgado. |
-| **Blacklist temporal por IP** | a las 300 req/min global → bloqueo 15 min | Castiga al que insiste por encima del techo. |
-| **Tamaño máximo de body** | 8 KB (413 si se excede) | `RequestSizeFilter` por `Content-Length` + backstops de Tomcat. |
-
-Otros controles:
-- **Validación estricta**: Bean Validation (rangos -10..60 °C, 0..100 %) + validaciones
-  cruzadas (`min < max`) en el service.
-- **CORS restringido**: solo los orígenes configurados, solo GET/POST/OPTIONS.
-- **Logs de rechazos**: cada límite excedido / IP blacklisteada se registra con WARN.
-- **429 / 413**: devueltos por los filtros y el `GlobalExceptionHandler`.
-
-> El rate limiting en memoria es deliberadamente simple (defendible y sin infraestructura
-> extra). `RateLimiter` es una interfaz, así que para producción multi-instancia se
-> reemplaza por Redis + bucket4j sin tocar los services. Como el límite es por instancia,
-> en un free tier de 1 sola instancia protege exactamente lo que necesitás.
 
 ## Endpoints
 
 ### Configuración
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| POST | `/api/config` | Crea config nueva, la marca activa |
-| GET | `/api/config/latest` | Config activa actual |
-| GET | `/api/config/history?from=&to=&createdByName=&createdByEmail=&temperatureMin=&temperatureMax=&humidityMin=&humidityMax=&page=&size=&sort=` | Historial paginado con filtros de columna |
+| Método | Ruta                  | Descripción                                      |
+| ------ | --------------------- | ------------------------------------------------ |
+| POST   | `/api/config`         | Crea una nueva configuración activa              |
+| GET    | `/api/config/latest`  | Obtiene la configuración activa actual           |
+| GET    | `/api/config/history` | Obtiene el historial paginado de configuraciones |
 
-> `createdByName` / `createdByEmail` son filtros **contains** insensibles a mayúsculas y a
-> acentos (p. ej. `gabriel` matchea `Gabriel Andinó`). Se resuelven contra campos
-> normalizados (`*Normalized`) porque la collation de MongoDB no aplica a `$regex`. Los
-> filtros numéricos (`temperatureMin`, etc.) son match exacto sobre el valor guardado.
+Filtros disponibles:
+
+```text
+/api/config/history?from=&to=&createdByName=&createdByEmail=&page=&size=&sort=
+```
 
 ### Mediciones
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| POST | `/api/measurements` | Registra medición (desde la Raspberry) |
-| GET | `/api/measurements/latest` | Última medición (último valor válido) |
-| GET | `/api/measurements?from=&to=&status=&temperatureMin=&temperatureMax=&humidityMin=&humidityMax=&coolerOn=&page=&size=&sort=` | Mediciones paginadas con filtros (fecha, estado, rangos de temp/humedad, cooler) |
+| Método | Ruta                          | Descripción                               |
+| ------ | ----------------------------- | ----------------------------------------- |
+| POST   | `/api/measurements`           | Registra una nueva medición               |
+| GET    | `/api/measurements/latest`    | Obtiene la última medición                |
+| GET    | `/api/measurements`           | Obtiene mediciones paginadas              |
+| GET    | `/api/measurements/dashboard` | Obtiene datos resumidos para el dashboard |
 
-Ver [`docs/examples.http`](docs/examples.http) para ejemplos de request/response.
+Filtros disponibles:
 
-## Tests
-
-```bash
-./gradlew test
+```text
+/api/measurements?from=&to=&status=&temperatureMin=&temperatureMax=&humidityMin=&humidityMax=&coolerOn=&page=&size=&sort=
 ```
 
-Tests unitarios con **JUnit (Jupiter) + Mockito**:
-- `ConfigServiceTest`: desactivación de la config previa, persistencia de la nueva como
-  activa con metadata de auditoría, validaciones cruzadas, `latest` sin resultados.
-- `MeasurementServiceTest`: default de `status` a `NORMAL`, sellado de `createdAt`, `latest`
-  sin resultados.
-- `InMemorySlidingWindowRateLimiterTest`: límite respetado, 429 al excederse, blacklist al
-  superar el umbral, independencia entre claves.
+## Dashboard
 
-Los services se testean con los mappers MapStruct **reales** (`*MapperImpl` generados), así
-el test cubre también el mapeo. Repos, `MongoTemplate` y `RateLimitService` se mockean.
+El endpoint de dashboard devuelve la información necesaria para la vista principal del frontend.
 
-> Nota sobre JUnit 6: el BOM de Spring Boot 3.5 gestiona JUnit 5 (Jupiter). La API que usan
-> estos tests es idéntica en JUnit 6; si querés forzar la 6.x, sobreescribí la versión del
-> platform en `build.gradle.kts`. Se dejó en Jupiter para no romper el BOM.
+Ejemplo de respuesta:
 
-## Deploy gratuito / económico
+```json
+{
+  "latestMeasurement": {
+    "temperature": 25.4,
+    "humidity": 78.2,
+    "coolerOn": true,
+    "status": "COOLING",
+    "createdAt": "2026-06-03T12:05:00Z"
+  },
+  "activeConfig": {
+    "temperatureMin": 22.0,
+    "temperatureMax": 28.0,
+    "humidityMin": 40.0,
+    "humidityMax": 90.0,
+    "hysteresisTemperature": 1.0,
+    "hysteresisHumidity": 2.0
+  },
+  "measurementsLast24h": []
+}
+```
 
-| Componente | Opción recomendada | Notas |
-| --- | --- | --- |
-| MongoDB | **MongoDB Atlas** (free tier M0, 512 MB) | Gratis, suficiente para el proyecto |
-| Backend | **Render** (free web service) o **Railway** | Render duerme tras inactividad; Railway tiene crédito mensual |
-| Frontend | **Vercel** o **Netlify** | Build de Vite estático, gratis |
+## Seguridad y anti-abuso
 
-Pasos rápidos:
-1. Crear cluster M0 en Atlas, copiar la URI a `MONGODB_URI`.
-2. Backend en Render: build `./gradlew bootJar`, start `java -jar build/libs/*.jar`,
-   setear `MONGODB_URI` y `CORS_ORIGINS` (= URL de Vercel).
-3. Frontend en Vercel: setear `VITE_API_BASE_URL` = URL pública del backend de Render.
+El backend incluye validaciones y límites básicos para evitar abuso de los endpoints públicos.
+
+Protecciones implementadas:
+
+* Rate limiting global por IP.
+* Rate limiting específico para `POST /api/config`.
+* Rate limiting específico para `POST /api/measurements`.
+* Blacklist temporal por IP ante exceso de requests.
+* Límite máximo de tamaño de request body.
+* Validación estricta de rangos de temperatura y humedad.
+* CORS restringido a los orígenes configurados.
+
+El objetivo no es implementar autenticación completa, sino proteger una API pública simple contra spam o uso abusivo durante la demo del sistema.
+
+## Validaciones principales
+
+### Configuración
+
+* `temperatureMin` debe ser menor que `temperatureMax`.
+* `humidityMin` debe ser menor que `humidityMax`.
+* `hysteresisTemperature` debe ser mayor a 0.
+* `hysteresisHumidity` debe ser mayor a 0.
+* La temperatura debe estar en un rango razonable.
+* La humedad debe estar entre 0 y 100.
+* `createdByName` y `createdByEmail` son obligatorios.
+
+### Mediciones
+
+* `temperature` es obligatoria.
+* `humidity` es obligatoria.
+* `humidity` debe estar entre 0 y 100.
+* `coolerOn` indica el estado calculado del actuador.
+* `status` representa el estado general del sistema.
+
+## Ejecutar con Docker
+
+Todo el stack local se puede levantar con:
+
+```bash
+docker compose up --build
+```
+
+Servicios:
+
+```text
+API: http://localhost:8080
+Swagger UI: http://localhost:8080/swagger-ui.html
+Mongo Express: http://localhost:8081
+```
+
+## Datos de prueba
+
+El proyecto incluye un seed inicial para MongoDB con:
+
+* configuraciones históricas;
+* una configuración activa;
+* mediciones simuladas de temperatura y humedad;
+* estados derivados del cooler.
+
+Para regenerar los datos:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+## Ejecutar sin Docker
+
+### 1. Levantar MongoDB
+
+```bash
+docker compose up -d mongodb
+```
+
+### 2. Ejecutar la aplicación
+
+```bash
+./gradlew bootRun
+```
+
+En Windows:
+
+```bash
+.\gradlew.bat bootRun
+```
+
+La API queda disponible en:
+
+```text
+http://localhost:8080
+```
+
+## Variables de entorno
+
+| Variable       | Default                                   | Descripción                            |
+| -------------- | ----------------------------------------- | -------------------------------------- |
+| `MONGODB_URI`  | `mongodb://localhost:27017/controlsystem` | Cadena de conexión de MongoDB          |
+| `CORS_ORIGINS` | `http://localhost:5173`                   | Orígenes permitidos separados por coma |
+
+## Documentación de la API
+
+Swagger UI queda disponible en:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+Ejemplos de requests y responses:
+
+```text
+docs/examples.http
+```
+
+## Estado del proyecto
+
+Este backend forma parte de un sistema mayor compuesto por:
+
+```text
+Frontend React
+Backend Spring Boot
+MongoDB
+Python Gateway
+OpenPLC Runtime
+Raspberry Pi 3B+
+Sensor DHT
+Relay
+Cooler
+```
+
+La integración con Raspberry/OpenPLC se realiza desde el Python Gateway, mientras que este backend se encarga de persistir configuración, historial y exponer la API REST para el frontend.

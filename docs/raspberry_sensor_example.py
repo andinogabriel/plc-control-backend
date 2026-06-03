@@ -21,7 +21,9 @@ import requests
 
 API_BASE = "http://localhost:8080"
 RELAY_PIN = 17
-READ_INTERVAL_SECONDS = 10
+# Fallback interval (seconds) used only until the active config is fetched. The real cadence
+# comes from the config's measurementIntervalSeconds, configurable from the web UI.
+DEFAULT_INTERVAL_SECONDS = 30
 
 # --- Simulación de hardware (reemplazar por lectura real del DHT y GPIO) ---
 def read_sensor():
@@ -96,7 +98,10 @@ def main():
 
         set_relay(cooler_on)
         publish_measurement(temp, hum, cooler_on, cooler_on, status)
-        time.sleep(READ_INTERVAL_SECONDS)
+
+        # Sampling cadence is driven by the active config (set from the web UI).
+        interval = config.get("measurementIntervalSeconds", DEFAULT_INTERVAL_SECONDS) if config else DEFAULT_INTERVAL_SECONDS
+        time.sleep(interval)
 
 
 if __name__ == "__main__":

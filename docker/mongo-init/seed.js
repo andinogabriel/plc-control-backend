@@ -39,6 +39,7 @@ if (target.configs.countDocuments() === 0) {
       humidityMax: 60 + (i % 6),
       hysteresisTemperature: 1.0 + (i % 3) * 0.5,
       hysteresisHumidity: 2.0 + (i % 2),
+      measurementIntervalSeconds: 30,
       createdByName: u.name,
       createdByEmail: u.email,
       clientIp: '192.168.0.' + (10 + i),

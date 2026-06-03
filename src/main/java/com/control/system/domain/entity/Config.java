@@ -42,6 +42,13 @@ public class Config {
      */
     private double hysteresisHumidity;
 
+    /**
+     * How often (in seconds) the Raspberry should read the sensor and publish a measurement.
+     * Versioned with the rest of the configuration so the sampling rate is auditable and can
+     * be changed from the web UI. Defaults to 30 s.
+     */
+    private int measurementIntervalSeconds;
+
     private String createdByName;
 
     @Indexed
