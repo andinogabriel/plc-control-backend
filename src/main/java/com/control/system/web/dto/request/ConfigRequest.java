@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -63,16 +62,16 @@ public record ConfigRequest(
     @DecimalMax(value = "100.0", message = "{config.humidity.max}")
     Double humidityMax,
 
-    @Schema(description = "Banda muerta de temperatura para evitar oscilaciones del cooler", example = "1.5")
+    @Schema(description = "Banda muerta de temperatura para evitar oscilaciones del cooler", example = "1.0", minimum = "0.1", maximum = "2")
     @NotNull(message = "{config.hysteresisTemperature.required}")
-    @Positive(message = "{config.hysteresis.positive}")
-    @DecimalMax(value = "20.0", message = "{config.hysteresis.max}")
+    @DecimalMin(value = "0.1", message = "{config.hysteresis.min}")
+    @DecimalMax(value = "2.0", message = "{config.hysteresis.max}")
     Double hysteresisTemperature,
 
-    @Schema(description = "Banda muerta de humedad para evitar oscilaciones del cooler", example = "2.0")
+    @Schema(description = "Banda muerta de humedad para evitar oscilaciones del cooler", example = "2.0", minimum = "0.1", maximum = "5")
     @NotNull(message = "{config.hysteresisHumidity.required}")
-    @Positive(message = "{config.hysteresis.positive}")
-    @DecimalMax(value = "20.0", message = "{config.hysteresis.max}")
+    @DecimalMin(value = "0.1", message = "{config.hysteresis.min}")
+    @DecimalMax(value = "5.0", message = "{config.hysteresis.max}")
     Double hysteresisHumidity,
 
     @Schema(description = "Cada cuántos segundos la Raspberry mide y publica", example = "30", minimum = "5", maximum = "3600")
