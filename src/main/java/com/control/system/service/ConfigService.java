@@ -45,7 +45,7 @@ public class ConfigService {
         config.setCreatedAt(Instant.now());
 
         final Config saved = configRepository.save(config);
-        log.info("New config created id={} by={}", saved.getId(), saved.getCreatedByEmail());
+        log.info("New config created id={}", saved.getId());
         return configMapper.toResponse(saved);
     }
 
