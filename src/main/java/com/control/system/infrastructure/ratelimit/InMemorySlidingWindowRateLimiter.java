@@ -45,7 +45,8 @@ public class InMemorySlidingWindowRateLimiter implements RateLimiter {
                 blacklist(key, now);
             }
             if (count > window.maxRequests()) {
-                log.warn("Rate limit exceeded for key='{}' ({}/{})", key, count, window.maxRequests());
+                // Log only the bucket, never the identifier (IP / email / fingerprint).
+                log.warn("Rate limit exceeded on bucket '{}' ({}/{})", bucketOf(key), count, window.maxRequests());
                 throw new RateLimitException("Rate limit exceeded", "error.rateLimit.exceeded", key, false);
             }
         }
@@ -65,8 +66,14 @@ public class InMemorySlidingWindowRateLimiter implements RateLimiter {
     private void blacklist(final String key, final long now) {
         final long until = now + TimeUnit.MINUTES.toMillis(properties.blacklistDurationMinutes());
         blacklistUntil.put(key, until);
-        log.warn("Blacklisting key='{}' until {}", key, Instant.ofEpochMilli(until));
+        log.warn("Blacklisting on bucket '{}' until {}", bucketOf(key), Instant.ofEpochMilli(until));
         throw new RateLimitException("Temporarily blacklisted", "error.rateLimit.blacklisted", key, true);
+    }
+
+    /** Returns the bucket prefix of a key ("config-ip", "global", ...) without the identifier. */
+    private static String bucketOf(final String key) {
+        final int sep = key.indexOf(':');
+        return sep > 0 ? key.substring(0, sep) : key;
     }
 
     private void evictExpired(final Deque<Long> timestamps, final long now, final long windowMs) {

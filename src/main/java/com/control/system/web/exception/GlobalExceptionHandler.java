@@ -52,7 +52,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RateLimitException.class)
     public ResponseEntity<ErrorResponse> handleRateLimit(final RateLimitException ex) {
-        log.warn("Rate limit triggered for key='{}' (blacklisted={}): {}", ex.getKey(), ex.isBlacklisted(), ex.getMessage());
+        log.warn("Rate limit triggered (blacklisted={})", ex.isBlacklisted());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ErrorResponse.of(
             429, messages.get("status.tooManyRequests"), messages.get(ex.getMessageCode())));
     }

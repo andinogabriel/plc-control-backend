@@ -326,7 +326,7 @@ Esto permite auditar:
 * desde qué cliente;
 * cuáles eran los valores anteriores.
 
-Ejemplo:
+Ejemplo de respuesta de la API (`GET /api/config/latest`):
 
 ```json
 {
@@ -340,13 +340,15 @@ Ejemplo:
   "measurementIntervalSeconds": 30,
   "createdByName": "Gabriel Andino",
   "createdByEmail": "gabriel@example.com",
-  "clientIp": "192.168.1.10",
-  "userAgent": "Mozilla/5.0",
-  "deviceFingerprint": "optional-client-id",
   "active": true,
   "createdAt": "2026-06-03T12:00:00Z"
 }
 ```
+
+> **Datos sensibles**: `clientIp`, `userAgent` y `deviceFingerprint` se usan solo para el
+> control anti-abuso y se guardan **únicamente en la base de datos**. No se exponen en la API
+> ni se escriben en los logs (los logs de rate limiting registran solo el "bucket", nunca la
+> IP/email/fingerprint).
 
 ### Intervalo de medición (configurable)
 

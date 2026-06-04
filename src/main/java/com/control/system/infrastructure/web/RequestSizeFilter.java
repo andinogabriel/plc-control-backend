@@ -47,7 +47,7 @@ public class RequestSizeFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         final long contentLength = request.getContentLengthLong();
         if (contentLength > maxBodyBytes) {
-            log.warn("Rejected oversized request: {} bytes from {}", contentLength, request.getRemoteAddr());
+            log.warn("Rejected oversized request: {} bytes", contentLength);
             errorWriter.write(response, HttpStatus.PAYLOAD_TOO_LARGE.value(),
                 messages.get("status.payloadTooLarge"), messages.get("error.request.tooLarge", String.valueOf(maxBodyBytes)));
             return;
