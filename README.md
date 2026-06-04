@@ -437,6 +437,39 @@ docker compose down -v
 docker compose up --build
 ```
 
+## Reconstruir / limpiar (Docker)
+
+Si cambiás código del backend, hay que **reconstruir la imagen** (si solo hacés
+`docker compose up`, sigue corriendo la imagen vieja):
+
+```bash
+docker compose up -d --build           # reconstruye lo que cambió y levanta
+```
+
+Reconstrucción forzada ignorando la caché de build:
+
+```bash
+docker compose build --no-cache backend
+docker compose up -d
+```
+
+Resetear los datos de Mongo (borra el volumen y vuelve a ejecutar el seed):
+
+```bash
+docker compose down -v                  # ⚠️ borra el volumen mongodb_data
+docker compose up -d --build
+```
+
+Liberar caché del builder de Docker (global, no solo de este proyecto):
+
+```bash
+docker builder prune -f
+```
+
+> Recordá: `down -v` borra la data (configuraciones y mediciones) y re-seedea; sin `-v` se
+> conserva. El frontend con `npm run dev` toma los cambios solo; el backend en Docker no:
+> hay que reconstruir.
+
 ## Documentación de la API
 
 La referencia completa de endpoints (rutas, parámetros, filtros, esquemas de request/response
