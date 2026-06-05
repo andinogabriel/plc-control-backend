@@ -56,6 +56,9 @@ public class ConfigService {
     }
 
     public PageResponse<ConfigResponse> searchConfigHistory(final ConfigSearchFilter filter, final Pageable pageable) {
+        if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
+            throw new IllegalArgumentException(messages.get("error.dateRange"));
+        }
         return PageResponse.from(configRepository.search(filter, pageable).map(configMapper::toResponse));
     }
 

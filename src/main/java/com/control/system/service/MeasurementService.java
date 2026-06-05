@@ -49,6 +49,9 @@ public class MeasurementService {
     }
 
     public PageResponse<MeasurementResponse> searchMeasurements(final MeasurementSearchFilter filter, final Pageable pageable) {
+        if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
+            throw new IllegalArgumentException(messages.get("error.dateRange"));
+        }
         return PageResponse.from(measurementRepository.search(filter, pageable).map(measurementMapper::toResponse));
     }
 }
