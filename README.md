@@ -33,14 +33,21 @@ flowchart TD
     API --> DB[(MongoDB)]
 
     DHT[Sensor DHT<br/>Temperatura + Humedad] --> Python[Python Gateway<br/>Raspberry Pi]
-    Python -->|GET /api/config/latest| API
-    Python -->|POST /api/measurements| API
+    Python -->|cada intervalo: GET /api/config/latest umbrales| API
+    Python -->|cada intervalo: POST /api/measurements temp, humedad, coolerOn| API
 
     Python -->|Modbus TCP| OpenPLC[OpenPLC Runtime]
     OpenPLC -->|Decisión de control| Python
     Python --> Relay[Relay]
     Relay --> Cooler[Cooler]
 ```
+
+> **Cadencia de la Raspberry**: en cada `measurementIntervalSeconds` (configurable desde el
+> frontend, por defecto 30 s) la Raspberry **(1)** consulta `GET /api/config/latest` para
+> obtener los umbrales/histéresis vigentes, **(2)** lee el sensor DHT y decide el estado del
+> cooler, y **(3)** publica `POST /api/measurements` con la temperatura, la humedad y si el
+> cooler quedó encendido. Así el historial se arma a ese ritmo y los cambios de umbral se
+> aplican en el siguiente ciclo.
 
 ## Responsabilidad de cada componente
 
