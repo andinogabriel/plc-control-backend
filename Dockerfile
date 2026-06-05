@@ -16,7 +16,10 @@ RUN gradle --no-daemon clean bootJar -x test
 FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 
-RUN groupadd --system app && useradd --system --gid app app
+# curl is used by the container HEALTHCHECK to probe the actuator endpoint.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system app && useradd --system --gid app app
 
 COPY --from=build /home/gradle/project/build/libs/*.jar app.jar
 USER app
@@ -24,4 +27,8 @@ USER app
 EXPOSE 8080
 # Honour container memory limits instead of a fixed -Xmx (good for small paid hosts).
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+
+HEALTHCHECK --interval=30s --timeout=4s --start-period=40s --retries=3 \
+  CMD curl -fsS http://localhost:8080/actuator/health || exit 1
+
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
