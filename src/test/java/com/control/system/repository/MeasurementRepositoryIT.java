@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,9 +77,19 @@ class MeasurementRepositoryIT {
 
     @Test
     void filtersByDateRange() {
-        final var page = repository.search(
-            filter(Instant.parse("2026-01-02T00:00:00Z"), Instant.parse("2026-01-02T23:59:59Z"), null, null, null, null, null, null),
-            PageRequest.of(0, 10));
-        assertThat(page.getTotalElements()).isEqualTo(1);
+        // @CreatedDate auditing may override createdAt on save, so assert against the actual
+        // persisted timestamps instead of hard-coded ones.
+        final List<Measurement> all = repository.findAll();
+        final Instant min = all.stream().map(Measurement::getCreatedAt).min(Comparator.naturalOrder()).orElseThrow();
+        final Instant max = all.stream().map(Measurement::getCreatedAt).max(Comparator.naturalOrder()).orElseThrow();
+
+        // A range covering every record returns all of them.
+        assertThat(repository.search(filter(min, max, null, null, null, null, null, null), PageRequest.of(0, 10))
+            .getTotalElements()).isEqualTo(3);
+
+        // A range entirely after the data returns none.
+        assertThat(repository.search(
+            filter(max.plusSeconds(3600), max.plusSeconds(7200), null, null, null, null, null, null), PageRequest.of(0, 10))
+            .getTotalElements()).isEqualTo(0);
     }
 }
