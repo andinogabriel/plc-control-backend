@@ -31,6 +31,7 @@ public class ConfigService {
     private final RateLimitService rateLimitService;
     private final ConfigMapper configMapper;
     private final MessageResolver messages;
+    private final DateRangeValidator dateRangeValidator;
 
     public ConfigResponse createConfig(final ConfigRequest request, final String clientIp, final String userAgent) {
         rateLimitService.checkConfigCreation(clientIp, request.createdByEmail(), request.deviceFingerprint());
@@ -56,9 +57,7 @@ public class ConfigService {
     }
 
     public PageResponse<ConfigResponse> searchConfigHistory(final ConfigSearchFilter filter, final Pageable pageable) {
-        if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
-            throw new IllegalArgumentException(messages.get("error.dateRange"));
-        }
+        dateRangeValidator.validate(filter.from(), filter.to());
         return PageResponse.from(configRepository.search(filter, pageable).map(configMapper::toResponse));
     }
 

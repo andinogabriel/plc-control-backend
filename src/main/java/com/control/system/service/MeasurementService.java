@@ -27,6 +27,7 @@ public class MeasurementService {
     private final RateLimitService rateLimitService;
     private final MeasurementMapper measurementMapper;
     private final MessageResolver messages;
+    private final DateRangeValidator dateRangeValidator;
 
     public MeasurementResponse createMeasurement(final MeasurementRequest request, final String clientIp) {
         rateLimitService.checkMeasurementCreation(clientIp);
@@ -49,9 +50,7 @@ public class MeasurementService {
     }
 
     public PageResponse<MeasurementResponse> searchMeasurements(final MeasurementSearchFilter filter, final Pageable pageable) {
-        if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
-            throw new IllegalArgumentException(messages.get("error.dateRange"));
-        }
+        dateRangeValidator.validate(filter.from(), filter.to());
         return PageResponse.from(measurementRepository.search(filter, pageable).map(measurementMapper::toResponse));
     }
 }
