@@ -7,6 +7,8 @@ import com.control.system.mapping.ConfigMapperImpl;
 import com.control.system.repository.ConfigRepository;
 import com.control.system.web.dto.request.ConfigRequest;
 import com.control.system.web.dto.response.ConfigResponse;
+import com.control.system.web.exception.BadRequestException;
+import com.control.system.web.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +20,6 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,7 +84,7 @@ class ConfigServiceTest {
             "X", "x@example.com", 30.0, 20.0, 30.0, 60.0, 1.5, 2.0, 30, null);
 
         assertThatThrownBy(() -> configService.createConfig(invalid, "ip", "ua"))
-            .isInstanceOf(IllegalArgumentException.class)
+            .isInstanceOf(BadRequestException.class)
             .hasMessageContaining("config.temperature.ordering");
 
         verify(configRepository, never()).save(any());
@@ -96,7 +97,7 @@ class ConfigServiceTest {
             "X", "x@example.com", 18.0, 26.0, 70.0, 60.0, 1.5, 2.0, 30, null);
 
         assertThatThrownBy(() -> configService.createConfig(invalid, "ip", "ua"))
-            .isInstanceOf(IllegalArgumentException.class)
+            .isInstanceOf(BadRequestException.class)
             .hasMessageContaining("config.humidity.ordering");
     }
 
@@ -106,6 +107,6 @@ class ConfigServiceTest {
         when(configRepository.findFirstByActiveTrueOrderByCreatedAtDesc()).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> configService.getLatestConfig())
-            .isInstanceOf(NoSuchElementException.class);
+            .isInstanceOf(ResourceNotFoundException.class);
     }
 }

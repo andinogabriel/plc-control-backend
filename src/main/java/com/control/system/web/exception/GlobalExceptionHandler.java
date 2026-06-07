@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -37,17 +36,16 @@ public class GlobalExceptionHandler {
             400, messages.get("status.badRequest"), messages.get("error.typeMismatch", ex.getName())));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(final IllegalArgumentException ex) {
-        log.debug("Bad request: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(ErrorResponse.of(
-            400, messages.get("status.badRequest"), ex.getMessage()));
-    }
-
-    @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(final NoSuchElementException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(
-            404, messages.get("status.notFound"), ex.getMessage()));
+    /**
+     * Single handler for every deliberate application error. The status and title come from the
+     * exception itself ({@link BadRequestException}, {@link ResourceNotFoundException}, ...), so
+     * adding a new mapped error is just a new {@link ApiException} subclass - no change here.
+     */
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ErrorResponse> handleApiException(final ApiException ex) {
+        log.debug("{} -> {}", ex.getStatus(), ex.getMessage());
+        return ResponseEntity.status(ex.getStatus()).body(ErrorResponse.of(
+            ex.getStatus().value(), messages.get(ex.getTitleKey()), ex.getMessage()));
     }
 
     @ExceptionHandler(RateLimitException.class)

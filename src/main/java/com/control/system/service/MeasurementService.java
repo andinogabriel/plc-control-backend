@@ -10,13 +10,13 @@ import com.control.system.repository.filter.MeasurementSearchFilter;
 import com.control.system.web.dto.request.MeasurementRequest;
 import com.control.system.web.dto.response.MeasurementResponse;
 import com.control.system.web.dto.response.PageResponse;
+import com.control.system.web.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -46,7 +46,7 @@ public class MeasurementService {
     public MeasurementResponse getLatestMeasurement() {
         return measurementRepository.findFirstByOrderByCreatedAtDesc()
             .map(measurementMapper::toResponse)
-            .orElseThrow(() -> new NoSuchElementException(messages.get("measurement.notFound")));
+            .orElseThrow(() -> new ResourceNotFoundException(messages.get("measurement.notFound")));
     }
 
     public PageResponse<MeasurementResponse> searchMeasurements(final MeasurementSearchFilter filter, final Pageable pageable) {

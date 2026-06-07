@@ -9,6 +9,8 @@ import com.control.system.repository.filter.ConfigSearchFilter;
 import com.control.system.web.dto.request.ConfigRequest;
 import com.control.system.web.dto.response.ConfigResponse;
 import com.control.system.web.dto.response.PageResponse;
+import com.control.system.web.exception.BadRequestException;
+import com.control.system.web.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +21,6 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -53,7 +54,7 @@ public class ConfigService {
     public ConfigResponse getLatestConfig() {
         return configRepository.findFirstByActiveTrueOrderByCreatedAtDesc()
             .map(configMapper::toResponse)
-            .orElseThrow(() -> new NoSuchElementException(messages.get("config.notFound")));
+            .orElseThrow(() -> new ResourceNotFoundException(messages.get("config.notFound")));
     }
 
     public PageResponse<ConfigResponse> searchConfigHistory(final ConfigSearchFilter filter, final Pageable pageable) {
@@ -71,10 +72,10 @@ public class ConfigService {
 
     private void validateThresholdOrdering(final ConfigRequest request) {
         if (request.temperatureMin() >= request.temperatureMax()) {
-            throw new IllegalArgumentException(messages.get("config.temperature.ordering"));
+            throw new BadRequestException(messages.get("config.temperature.ordering"));
         }
         if (request.humidityMin() >= request.humidityMax()) {
-            throw new IllegalArgumentException(messages.get("config.humidity.ordering"));
+            throw new BadRequestException(messages.get("config.humidity.ordering"));
         }
     }
 }

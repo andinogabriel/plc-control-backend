@@ -1,6 +1,7 @@
 package com.control.system.service;
 
 import com.control.system.infrastructure.i18n.MessageResolver;
+import com.control.system.web.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -28,11 +29,11 @@ public class DateRangeValidator {
 
     public void validate(final Instant from, final Instant to) {
         if (from != null && to != null && from.isAfter(to)) {
-            throw new IllegalArgumentException(messages.get("error.dateRange"));
+            throw new BadRequestException(messages.get("error.dateRange"));
         }
         final Instant limit = Instant.now().plusSeconds(FUTURE_TOLERANCE_SECONDS);
         if ((from != null && from.isAfter(limit)) || (to != null && to.isAfter(limit))) {
-            throw new IllegalArgumentException(messages.get("error.dateFuture"));
+            throw new BadRequestException(messages.get("error.dateFuture"));
         }
     }
 }
