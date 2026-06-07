@@ -10,13 +10,13 @@ import com.control.system.repository.filter.MeasurementSearchFilter;
 import com.control.system.web.dto.request.MeasurementRequest;
 import com.control.system.web.dto.response.MeasurementResponse;
 import com.control.system.web.dto.response.PageResponse;
+import com.control.system.web.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +27,7 @@ public class MeasurementService {
     private final RateLimitService rateLimitService;
     private final MeasurementMapper measurementMapper;
     private final MessageResolver messages;
+    private final DateRangeValidator dateRangeValidator;
 
     public MeasurementResponse createMeasurement(final MeasurementRequest request, final String clientIp) {
         rateLimitService.checkMeasurementCreation(clientIp);
@@ -45,13 +46,11 @@ public class MeasurementService {
     public MeasurementResponse getLatestMeasurement() {
         return measurementRepository.findFirstByOrderByCreatedAtDesc()
             .map(measurementMapper::toResponse)
-            .orElseThrow(() -> new NoSuchElementException(messages.get("measurement.notFound")));
+            .orElseThrow(() -> new ResourceNotFoundException(messages.get("measurement.notFound")));
     }
 
     public PageResponse<MeasurementResponse> searchMeasurements(final MeasurementSearchFilter filter, final Pageable pageable) {
-        if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
-            throw new IllegalArgumentException(messages.get("error.dateRange"));
-        }
+        dateRangeValidator.validate(filter.from(), filter.to());
         return PageResponse.from(measurementRepository.search(filter, pageable).map(measurementMapper::toResponse));
     }
 }

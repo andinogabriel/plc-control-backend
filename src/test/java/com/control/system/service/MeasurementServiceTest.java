@@ -16,7 +16,7 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.NoSuchElementException;
+import com.control.system.web.exception.ResourceNotFoundException;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +71,6 @@ class MeasurementServiceTest {
         when(measurementRepository.findFirstByOrderByCreatedAtDesc()).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> measurementService.getLatestMeasurement())
-            .isInstanceOf(NoSuchElementException.class);
+            .isInstanceOf(ResourceNotFoundException.class);
     }
 }
