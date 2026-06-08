@@ -434,15 +434,23 @@ Mongo Express: http://localhost:8081
 
 El proyecto incluye un seed inicial para MongoDB con:
 
-* configuraciones históricas;
-* una configuración activa;
-* mediciones simuladas de temperatura y humedad;
-* estados derivados del cooler.
+* configuraciones históricas (con una activa) y nombres acentuados para probar los filtros;
+* ~1300 mediciones con resolución mixta: **densas en las últimas 24 h** (una cada 2 min) y más
+  espaciadas hasta 14 días atrás (una cada 30 min);
+* la **última medición casi "en vivo"** (timestamp ≈ ahora), para que el badge de salud
+  muestre *En línea* apenas reseedeás;
+* ciclos de cooler con **histéresis real** (estado arrastrado) y los cuatro estados
+  (`NORMAL`, `WARNING_TEMP`, `WARNING_HUMIDITY`, `CRITICAL`).
 
-Para regenerar los datos:
+Así se pueden probar todas las vistas: kiosco y rangos cortos del dashboard (1 h/12 h/24 h),
+análisis del rango (promedios, % fuera de rango, duty cycle), timeline del cooler, alertas y
+los filtros del historial.
+
+Los timestamps son **relativos al momento del seed**, así que para tener datos frescos hay que
+regenerar (el seed solo corre con la base vacía):
 
 ```bash
-docker compose down -v
+docker compose down -v   # borra el volumen y reseedea con datos hasta "ahora"
 docker compose up --build
 ```
 
