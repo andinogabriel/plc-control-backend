@@ -33,7 +33,7 @@ flowchart TD
     API --> DB[(MongoDB)]
 
     DHT[Sensor DHT<br/>Temperatura + Humedad] --> Python[Python Gateway<br/>Raspberry Pi]
-    Python <-->|cada intervalo: GET /api/config/latest (pide y recibe umbrales)| API
+    Python <-->|cada intervalo: GET /api/config/latest umbrales| API
     Python -->|cada intervalo: POST /api/measurements temp, humedad, coolerOn| API
 
     Python -->|Modbus TCP| OpenPLC[OpenPLC Runtime]
