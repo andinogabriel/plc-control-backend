@@ -74,10 +74,10 @@ public record ConfigRequest(
     @DecimalMax(value = "5.0", message = "{config.hysteresis.max}")
     Double hysteresisHumidity,
 
-    @Schema(description = "Cada cuántos segundos la Raspberry mide y publica", example = "30", minimum = "5", maximum = "3600")
+    @Schema(description = "Cada cuántos segundos la Raspberry mide y publica", example = "30", minimum = "5", maximum = "1800")
     @NotNull(message = "{config.measurementInterval.required}")
     @Min(value = 5, message = "{config.measurementInterval.range}")
-    @Max(value = 3600, message = "{config.measurementInterval.range}")
+    @Max(value = 1800, message = "{config.measurementInterval.range}")
     Integer measurementIntervalSeconds,
 
     @Schema(description = "Identificador opcional del dispositivo del cliente (anti-abuso)", example = "fp-abc123")
