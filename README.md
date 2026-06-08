@@ -364,7 +364,7 @@ publica una medición. Es parte de la configuración versionada, así que se set
 frontend junto con los umbrales y queda auditado (quién lo cambió y cuándo).
 
 * **Valor por defecto:** 30 segundos.
-* **Rango permitido:** 5 a 3600 segundos (validado en el backend).
+* **Rango permitido:** 5 a 1800 segundos (media hora), validado en el backend.
 * La Raspberry obtiene este valor en `GET /api/config/latest` y lo usa como cadencia de su
   bucle. Al cambiarlo desde la web, la próxima vez que la Raspberry relea la config, ajusta
   el intervalo sin necesidad de redeploy.
@@ -409,7 +409,10 @@ Protecciones implementadas:
 * Rate limiting específico para `POST /api/measurements`.
 * Blacklist temporal por IP ante exceso de requests.
 * Límite máximo de tamaño de request body.
-* Validación estricta de rangos de temperatura y humedad.
+* Validación estricta de rangos de temperatura y humedad (incluye que la **mínima sea menor
+  que la máxima**, no solo el rango absoluto).
+* Validación del rango de fechas en los filtros de historial: **"desde" no puede ser posterior
+  a "hasta"** y **no se admiten fechas futuras**.
 * CORS restringido a los orígenes configurados.
 
 El objetivo no es implementar autenticación completa, sino proteger una API pública simple contra spam o uso abusivo durante la demo del sistema.
@@ -498,6 +501,23 @@ Especificación:    http://localhost:8080/api-docs
 ```
 
 Ejemplos rápidos de requests y responses: `docs/examples.http`.
+
+## Manejo de errores
+
+El backend responde con un formato de error consistente (`ErrorResponse`: `status`, `error`,
+`message`, `timestamp`, `details`) y mensajes en español. **Cada excepción de dominio lleva su
+propio status HTTP** (no se infiere de tipos genéricos del JDK), de modo que un error
+inesperado no se disfraza de error de cliente:
+
+| Situación | HTTP | Tipo |
+| --- | --- | --- |
+| Validación de campos o regla de negocio (umbral mín ≥ máx, rango de fechas inválido, fecha futura, intervalo fuera de 5–1800 s) | 400 Bad Request | `BadRequestException` |
+| Recurso inexistente (no hay configuración activa / no hay mediciones aún) | 404 Not Found | `ResourceNotFoundException` |
+| Exceso de solicitudes | 429 Too Many Requests | `RateLimitException` |
+| Error inesperado | 500 Internal Server Error | fallback genérico |
+
+Las excepciones de dominio extienden `ApiException` (status + clave i18n del título), así que
+agregar un nuevo error mapeado es crear una subclase — sin tocar el handler global.
 
 ## Estado del proyecto
 
