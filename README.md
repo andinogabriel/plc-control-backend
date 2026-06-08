@@ -33,7 +33,7 @@ flowchart TD
     API --> DB[(MongoDB)]
 
     DHT[Sensor DHT<br/>Temperatura + Humedad] --> Python[Python Gateway<br/>Raspberry Pi]
-    Python -->|cada intervalo: GET /api/config/latest umbrales| API
+    Python <-->|cada intervalo: GET /api/config/latest (pide y recibe umbrales)| API
     Python -->|cada intervalo: POST /api/measurements temp, humedad, coolerOn| API
 
     Python -->|Modbus TCP| OpenPLC[OpenPLC Runtime]
@@ -502,23 +502,6 @@ Especificación:    http://localhost:8080/api-docs
 
 Ejemplos rápidos de requests y responses: `docs/examples.http`.
 
-## Manejo de errores
-
-El backend responde con un formato de error consistente (`ErrorResponse`: `status`, `error`,
-`message`, `timestamp`, `details`) y mensajes en español. **Cada excepción de dominio lleva su
-propio status HTTP** (no se infiere de tipos genéricos del JDK), de modo que un error
-inesperado no se disfraza de error de cliente:
-
-| Situación | HTTP | Tipo |
-| --- | --- | --- |
-| Validación de campos o regla de negocio (umbral mín ≥ máx, rango de fechas inválido, fecha futura, intervalo fuera de 5–1800 s) | 400 Bad Request | `BadRequestException` |
-| Recurso inexistente (no hay configuración activa / no hay mediciones aún) | 404 Not Found | `ResourceNotFoundException` |
-| Exceso de solicitudes | 429 Too Many Requests | `RateLimitException` |
-| Error inesperado | 500 Internal Server Error | fallback genérico |
-
-Las excepciones de dominio extienden `ApiException` (status + clave i18n del título), así que
-agregar un nuevo error mapeado es crear una subclase — sin tocar el handler global.
-
 ## Estado del proyecto
 
 Este backend forma parte de un sistema mayor compuesto por:
@@ -536,3 +519,6 @@ Cooler
 ```
 
 La integración con Raspberry/OpenPLC se realiza desde el Python Gateway, mientras que este backend se encarga de persistir configuración, historial y exponer la API REST para el frontend.
+
+El **frontend** (panel web React que consume esta API) vive en su propio repositorio:
+[plc-control-frontend](https://github.com/andinogabriel/plc-control-frontend).
