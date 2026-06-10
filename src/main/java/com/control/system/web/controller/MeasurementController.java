@@ -2,6 +2,7 @@ package com.control.system.web.controller;
 
 import com.control.system.infrastructure.web.ClientIpResolver;
 import com.control.system.service.MeasurementService;
+import com.control.system.service.MeasurementStreamService;
 import com.control.system.web.dto.request.MeasurementHistoryQuery;
 import com.control.system.web.dto.request.MeasurementRequest;
 import com.control.system.web.dto.response.MeasurementResponse;
@@ -21,12 +22,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/measurements")
@@ -35,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeasurementController {
 
     private final MeasurementService measurementService;
+    private final MeasurementStreamService streamService;
     private final ClientIpResolver clientIpResolver;
 
     @PostMapping
@@ -67,6 +71,15 @@ public class MeasurementController {
     })
     public MeasurementResponse getLatestMeasurement() {
         return measurementService.getLatestMeasurement();
+    }
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Stream de mediciones en tiempo real (SSE)",
+        description = "Conexión Server-Sent Events: emite un evento 'measurement' por cada nueva lectura, "
+            + "para que el frontend se actualice en vivo sin polling.")
+    @ApiResponse(responseCode = "200", description = "Stream de eventos text/event-stream")
+    public SseEmitter streamMeasurements() {
+        return streamService.subscribe();
     }
 
     @GetMapping

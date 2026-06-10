@@ -50,6 +50,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(final HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/api/");
+        final String uri = request.getRequestURI();
+        // The SSE stream is one long-lived connection (and auto-reconnects); it must not consume
+        // the per-IP request budget.
+        return !uri.startsWith("/api/") || uri.startsWith("/api/measurements/stream");
     }
 }

@@ -28,6 +28,7 @@ public class MeasurementService {
     private final MeasurementMapper measurementMapper;
     private final MessageResolver messages;
     private final DateRangeValidator dateRangeValidator;
+    private final MeasurementStreamService streamService;
 
     public MeasurementResponse createMeasurement(final MeasurementRequest request, final String clientIp) {
         rateLimitService.checkMeasurementCreation(clientIp);
@@ -40,7 +41,9 @@ public class MeasurementService {
 
         final Measurement saved = measurementRepository.save(measurement);
         log.debug("Measurement saved id={} temp={} hum={}", saved.getId(), saved.getTemperature(), saved.getHumidity());
-        return measurementMapper.toResponse(saved);
+        final MeasurementResponse response = measurementMapper.toResponse(saved);
+        streamService.publish(response);
+        return response;
     }
 
     public MeasurementResponse getLatestMeasurement() {

@@ -36,6 +36,8 @@ class MeasurementServiceTest {
     private MeasurementMapperImpl measurementMapper;
     @Mock
     private MessageResolver messages;
+    @Mock
+    private MeasurementStreamService streamService;
 
     @InjectMocks
     private MeasurementService measurementService;
@@ -53,6 +55,7 @@ class MeasurementServiceTest {
         assertThat(captor.getValue().getStatus()).isEqualTo(SystemStatus.NORMAL);
         assertThat(captor.getValue().getCreatedAt()).isNotNull();
         assertThat(response.status()).isEqualTo(SystemStatus.NORMAL);
+        verify(streamService).publish(response);
     }
 
     @Test
