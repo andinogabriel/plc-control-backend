@@ -417,6 +417,26 @@ Protecciones implementadas:
 
 El objetivo no es implementar autenticación completa, sino proteger una API pública simple contra spam o uso abusivo durante la demo del sistema.
 
+## Tiempo real (SSE)
+
+`GET /api/measurements/stream` es un stream **Server-Sent Events**: el backend empuja un evento
+`measurement` por cada lectura nueva, así el frontend se actualiza en vivo sin polling. Una
+conexión SSE inactiva no ocupa un thread (servlet async); igual está **acotada** para que muchas
+pestañas/kioscos abiertos no tumben el servidor:
+
+| Variable de entorno | Default | Qué hace |
+| --- | --- | --- |
+| `APP_STREAM_ENABLED` | `true` | apaga el stream por completo (el front cae a polling) |
+| `APP_STREAM_MAX_SUBSCRIBERS` | `20` | tope **total** de conexiones simultáneas |
+| `APP_STREAM_MAX_SUBSCRIBERS_PER_IP` | `3` | tope **por IP** (un cliente con muchas pestañas no acapara) |
+| `APP_STREAM_HEARTBEAT_INTERVAL_MS` | `20000` | keep-alive para detectar conexiones caídas |
+| `APP_STREAM_TIMEOUT_MS` | `0` | timeout por conexión (`0` = sin límite; ej. `1800000` recicla las viejas) |
+
+Las conexiones que superan un límite se cierran al instante (no se mantienen abiertas), y el
+stream también pasa por el rate limiting global, así una tormenta de reconexiones se corta sola.
+Los defaults viven en `application.yml` y se pueden sobreescribir por env var (ver
+`docker-compose.yml`).
+
 ## Ejecutar con Docker
 
 Todo el stack local se puede levantar con:

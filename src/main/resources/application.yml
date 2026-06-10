@@ -30,6 +30,17 @@ app:
   request:
     # Any request body larger than this (Content-Length) is rejected with 413.
     max-body-bytes: ${MAX_BODY_BYTES:8192}
+  # Real-time SSE stream. Bounded so many open tabs/kiosks cannot exhaust the server.
+  # Override any value with an env var, e.g. APP_STREAM_MAX_SUBSCRIBERS=10, APP_STREAM_ENABLED=false.
+  stream:
+    enabled: ${APP_STREAM_ENABLED:true}
+    heartbeat-interval-ms: ${APP_STREAM_HEARTBEAT_INTERVAL_MS:20000}
+    # Hard cap on TOTAL concurrent connections across all clients.
+    max-subscribers: ${APP_STREAM_MAX_SUBSCRIBERS:20}
+    # Per-IP cap so one client opening many tabs/kiosks cannot take all the slots.
+    max-subscribers-per-ip: ${APP_STREAM_MAX_SUBSCRIBERS_PER_IP:3}
+    # Per-connection timeout in ms (0 = no timeout; set e.g. 1800000 to recycle stale ones).
+    timeout-ms: ${APP_STREAM_TIMEOUT_MS:0}
   rate-limit:
     blacklist-duration-minutes: ${RL_BLACKLIST_MINUTES:15}
     # Global ceiling per IP across ALL /api endpoints. This is the primary protection
