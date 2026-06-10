@@ -78,8 +78,8 @@ public class MeasurementController {
         description = "Conexión Server-Sent Events: emite un evento 'measurement' por cada nueva lectura, "
             + "para que el frontend se actualice en vivo sin polling.")
     @ApiResponse(responseCode = "200", description = "Stream de eventos text/event-stream")
-    public SseEmitter streamMeasurements() {
-        return streamService.subscribe();
+    public SseEmitter streamMeasurements(final HttpServletRequest httpRequest) {
+        return streamService.subscribe(clientIpResolver.resolve(httpRequest));
     }
 
     @GetMapping

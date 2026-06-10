@@ -25,6 +25,12 @@ services:
     environment:
       MONGODB_URI: mongodb://mongodb:27017/controlsystem
       CORS_ORIGINS: http://localhost:5173
+      # Real-time SSE stream (defaults shown; tune or disable here to limit resources).
+      APP_STREAM_ENABLED: "true"
+      APP_STREAM_MAX_SUBSCRIBERS: "20"
+      APP_STREAM_MAX_SUBSCRIBERS_PER_IP: "3"
+      APP_STREAM_HEARTBEAT_INTERVAL_MS: "20000"
+      APP_STREAM_TIMEOUT_MS: "0"
     depends_on:
       mongodb:
         condition: service_healthy
