@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Gradle dependencies. Minor/patch bumps are grouped into a single weekly PR to keep
+  # the noise low for a solo maintainer; majors come as individual PRs (reviewed by hand).
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      gradle-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Keep the GitHub Actions in the CI workflow current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
