@@ -93,4 +93,6 @@ springdoc:
 
 logging:
   level:
-    com.control.system: DEBUG
+    # INFO by default so a deployed instance (Raspberry / small host) stays quiet and cheap.
+    # Set LOG_LEVEL=DEBUG locally when you need the verbose application traces.
+    com.control.system: ${LOG_LEVEL:INFO}
