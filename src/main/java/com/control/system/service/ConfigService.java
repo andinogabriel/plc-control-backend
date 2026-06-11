@@ -13,6 +13,7 @@ import com.control.system.web.exception.BadRequestException;
 import com.control.system.web.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -38,17 +39,32 @@ public class ConfigService {
         rateLimitService.checkConfigCreation(clientIp, request.createdByEmail(), request.deviceFingerprint());
         validateThresholdOrdering(request);
 
-        deactivateExistingConfigs();
-
         final Config config = configMapper.toEntity(request);
         config.setClientIp(clientIp);
         config.setUserAgent(userAgent);
         config.setActive(true);
         config.setCreatedAt(Instant.now());
 
-        final Config saved = configRepository.save(config);
+        final Config saved = deactivateAndSave(config);
         log.info("New config created id={}", saved.getId());
         return configMapper.toResponse(saved);
+    }
+
+    /**
+     * Deactivates any currently active config and saves the new one as active. The two writes are
+     * not atomic (standalone MongoDB has no multi-document transactions), so the unique partial
+     * index on {@code active} can reject the save if a concurrent request won the race. In that
+     * case we deactivate the other winner and retry once.
+     */
+    private Config deactivateAndSave(final Config config) {
+        try {
+            deactivateExistingConfigs();
+            return configRepository.save(config);
+        } catch (final DuplicateKeyException race) {
+            log.warn("Concurrent config activation detected; deactivating and retrying once");
+            deactivateExistingConfigs();
+            return configRepository.save(config);
+        }
     }
 
     public ConfigResponse getLatestConfig() {
