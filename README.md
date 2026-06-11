@@ -4,6 +4,28 @@ Backend REST para un sistema de control de temperatura/humedad usando Raspberry 
 
 Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por capas.
 
+## Contenido
+
+- [Qué es y para qué sirve](#qué-es-y-para-qué-sirve)
+- [Arquitectura general](#arquitectura-general)
+- [Responsabilidad de cada componente](#responsabilidad-de-cada-componente)
+- [Casos de uso](#casos-de-uso)
+- [Flujo principal del sistema](#flujo-principal-del-sistema)
+- [Qué hace el sistema (diagrama de secuencia)](#qué-hace-el-sistema-diagrama-de-secuencia)
+- [Rol de OpenPLC](#rol-de-openplc)
+- [Integración con Modbus TCP](#integración-con-modbus-tcp)
+- [Lógica de control](#lógica-de-control)
+- [Máquina de estados](#máquina-de-estados)
+- [Modelo de configuración](#modelo-de-configuración)
+- [Modelo de medición](#modelo-de-medición)
+- [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
+- [Tiempo real (SSE)](#tiempo-real-sse)
+- [Ejecutar con Docker](#ejecutar-con-docker)
+- [Datos de prueba](#datos-de-prueba)
+- [Reconstruir / limpiar (Docker)](#reconstruir--limpiar-docker)
+- [Documentación de la API](#documentación-de-la-api)
+- [Estado del proyecto](#estado-del-proyecto)
+
 ## Qué es y para qué sirve
 
 Este backend forma parte de un sistema de control de clima desarrollado como proyecto de Teoría de Control.
