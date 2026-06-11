@@ -34,6 +34,10 @@ app:
   request:
     # Any request body larger than this (Content-Length) is rejected with 413.
     max-body-bytes: ${MAX_BODY_BYTES:8192}
+  security:
+    # When set, POST /api/config requires a matching X-Api-Key header (401 otherwise).
+    # Blank = disabled (the demo works without setup).
+    config-api-key: ${APP_CONFIG_API_KEY:}
   # Real-time SSE stream. Bounded so many open tabs/kiosks cannot exhaust the server.
   # Override any value with an env var, e.g. APP_STREAM_MAX_SUBSCRIBERS=10, APP_STREAM_ENABLED=false.
   stream:
