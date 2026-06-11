@@ -27,6 +27,10 @@ server:
 app:
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  # Data retention: a TTL index drops measurements older than this many days so the collection
+  # does not grow without bound. 0 disables expiry.
+  retention:
+    measurement-days: ${APP_RETENTION_MEASUREMENT_DAYS:90}
   request:
     # Any request body larger than this (Content-Length) is rejected with 413.
     max-body-bytes: ${MAX_BODY_BYTES:8192}
