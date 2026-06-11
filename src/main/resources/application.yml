@@ -84,6 +84,16 @@ management:
   endpoint:
     health:
       show-details: never
+      # Expose /actuator/health/liveness and /actuator/health/readiness.
+      probes:
+        enabled: true
+      group:
+        # Liveness = the process is up (default: livenessState only). The container
+        # HEALTHCHECK targets this, so a transient Mongo outage does NOT mark the app
+        # as dead and is not a restart trigger.
+        # Readiness = safe to receive traffic, so it also reflects MongoDB connectivity.
+        readiness:
+          include: readinessState,mongo
 
 springdoc:
   api-docs:
