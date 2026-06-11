@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -34,6 +37,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleTypeMismatch(final MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.badRequest().body(ErrorResponse.of(
             400, messages.get("status.badRequest"), messages.get("error.typeMismatch", ex.getName())));
+    }
+
+    /** A missing or syntactically broken request body is a client error (400), not a server fault. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(final HttpMessageNotReadableException ex) {
+        log.debug("Unreadable request body: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.badRequest().body(ErrorResponse.of(
+            400, messages.get("status.badRequest"), messages.get("error.malformedBody")));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(final HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(ErrorResponse.of(
+            405, messages.get("status.methodNotAllowed"), messages.get("error.methodNotAllowed")));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(final HttpMediaTypeNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(ErrorResponse.of(
+            415, messages.get("status.unsupportedMediaType"), messages.get("error.unsupportedMediaType")));
     }
 
     /**
