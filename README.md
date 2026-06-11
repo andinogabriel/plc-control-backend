@@ -21,6 +21,7 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
 - [Tiempo real (SSE)](#tiempo-real-sse)
 - [Ejecutar con Docker](#ejecutar-con-docker)
+- [Variables de entorno](#variables-de-entorno)
 - [Datos de prueba](#datos-de-prueba)
 - [Reconstruir / limpiar (Docker)](#reconstruir--limpiar-docker)
 - [Documentación de la API](#documentación-de-la-api)
@@ -474,6 +475,30 @@ API: http://localhost:8080
 Swagger UI: http://localhost:8080/swagger-ui.html
 Mongo Express: http://localhost:8081
 ```
+
+## Variables de entorno
+
+Todo es configurable por variable de entorno; los valores por defecto sirven para correr el
+proyecto sin configuración previa. Las más usadas:
+
+| Variable | Default | Para qué sirve |
+| --- | --- | --- |
+| `MONGODB_URI` | `mongodb://localhost:27017/controlsystem` | Conexión a MongoDB. |
+| `CORS_ORIGINS` | `http://localhost:5173` | Orígenes permitidos para el frontend (coma-separados). |
+| `LOG_LEVEL` | `INFO` | Nivel de log de la app. Poné `DEBUG` para trazas verbosas en local. |
+| `APP_RETENTION_MEASUREMENT_DAYS` | `90` | Días que se conservan las mediciones (índice TTL). `0` desactiva el borrado. |
+| `APP_CONFIG_API_KEY` | *(vacío)* | Si se setea, `POST /api/config` exige el header `X-Api-Key`. Vacío = sin auth. |
+| `MAX_BODY_BYTES` | `8192` | Tamaño máximo del body; por encima responde `413`. |
+| `APP_STREAM_ENABLED` | `true` | Habilita el stream SSE de mediciones en tiempo real. |
+| `APP_STREAM_HEARTBEAT_INTERVAL_MS` | `20000` | Intervalo del heartbeat que mantiene viva la conexión SSE. |
+| `APP_STREAM_MAX_SUBSCRIBERS` | `20` | Tope global de conexiones SSE concurrentes. |
+| `APP_STREAM_MAX_SUBSCRIBERS_PER_IP` | `3` | Tope de conexiones SSE por IP (evita que un kiosco acapare cupos). |
+| `APP_STREAM_TIMEOUT_MS` | `0` | Timeout por conexión SSE (`0` = sin timeout). |
+| `RL_BLACKLIST_MINUTES` | `15` | Minutos que una IP queda bloqueada al superar el umbral de rate limiting. |
+
+El rate limiting por endpoint (`app.rate-limit.*`) se ajusta en
+[`application.yml`](src/main/resources/application.yml); los valores por defecto ya están
+pensados para el uso real (Raspberry publicando ~1 medición cada 10 s).
 
 ## Datos de prueba
 
