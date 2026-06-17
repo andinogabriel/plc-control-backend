@@ -524,6 +524,10 @@ docker compose down -v   # borra el volumen y reseedea con datos hasta "ahora"
 docker compose up --build
 ```
 
+Para **reseedear sin borrar el volumen** o **simular la Raspberry en vivo** (badge "en línea",
+cooler reaccionando, alerta roja a demanda) cuando el dispositivo todavía no está conectado, ver
+[`scripts/README.md`](scripts/README.md).
+
 ## Reconstruir / limpiar (Docker)
 
 Si cambiás código del backend, hay que **reconstruir la imagen** (si solo hacés
