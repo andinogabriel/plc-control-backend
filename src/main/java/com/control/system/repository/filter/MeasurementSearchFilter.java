@@ -10,6 +10,10 @@ import java.time.Instant;
  * <p>Date and numeric fields are ranges (inclusive); {@code status} and {@code coolerOn} are
  * exact matches. Backs both the chart query (date range + status) and the table's per-column
  * filters (temperature/humidity ranges, cooler on/off).
+ *
+ * <p>{@code maxPoints} (chart-only) caps the returned series: when the match exceeds it, the
+ * result is down-sampled to roughly {@code maxPoints} points spread across the whole range
+ * (instead of the most recent page), so wide ranges show their full span.
  */
 public record MeasurementSearchFilter(
     Instant from,
@@ -19,5 +23,6 @@ public record MeasurementSearchFilter(
     Double temperatureMax,
     Double humidityMin,
     Double humidityMax,
-    Boolean coolerOn
+    Boolean coolerOn,
+    Integer maxPoints
 ) {}

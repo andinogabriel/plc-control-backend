@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -53,7 +54,7 @@ class MeasurementRepositoryIT {
     private MeasurementSearchFilter filter(final Instant from, final Instant to, final SystemStatus status,
                                            final Double tMin, final Double tMax, final Double hMin, final Double hMax,
                                            final Boolean coolerOn) {
-        return new MeasurementSearchFilter(from, to, status, tMin, tMax, hMin, hMax, coolerOn);
+        return new MeasurementSearchFilter(from, to, status, tMin, tMax, hMin, hMax, coolerOn, null);
     }
 
     @Test
@@ -91,5 +92,28 @@ class MeasurementRepositoryIT {
         assertThat(repository.search(
             filter(max.plusSeconds(3600), max.plusSeconds(7200), null, null, null, null, null, null), PageRequest.of(0, 10))
             .getTotalElements()).isEqualTo(0);
+    }
+
+    @Test
+    void downSamplesToAtMostMaxPointsButKeepsFullSetOtherwise() {
+        repository.deleteAll();
+        final List<Measurement> many = new ArrayList<>();
+        final Instant base = Instant.parse("2026-02-01T00:00:00Z");
+        for (int i = 0; i < 50; i += 1) {
+            many.add(measurement(20.0 + i * 0.1, 40.0, i % 2 == 0, SystemStatus.NORMAL, base.plusSeconds(i * 60L)));
+        }
+        repository.saveAll(many);
+
+        // With maxPoints the wide range is down-sampled to ~maxPoints real points.
+        final var downsampled = repository.search(
+            new MeasurementSearchFilter(null, null, null, null, null, null, null, null, 10),
+            PageRequest.of(0, 1000));
+        assertThat(downsampled.getContent()).hasSizeLessThanOrEqualTo(10).hasSizeGreaterThan(1);
+
+        // Without maxPoints the full set comes back (subject to the page size).
+        final var full = repository.search(
+            new MeasurementSearchFilter(null, null, null, null, null, null, null, null, null),
+            PageRequest.of(0, 1000));
+        assertThat(full.getContent()).hasSize(50);
     }
 }
