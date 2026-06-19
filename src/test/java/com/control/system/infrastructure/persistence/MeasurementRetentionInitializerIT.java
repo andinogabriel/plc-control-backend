@@ -33,8 +33,16 @@ class MeasurementRetentionInitializerIT {
     private MongoTemplate mongoTemplate;
 
     private Optional<IndexInfo> ttlIndex() {
+        return indexNamed(MeasurementRetentionInitializer.TTL_INDEX);
+    }
+
+    private Optional<IndexInfo> createdAtIndex() {
+        return indexNamed(MeasurementRetentionInitializer.CREATED_AT_INDEX);
+    }
+
+    private Optional<IndexInfo> indexNamed(final String name) {
         return mongoTemplate.indexOps("measurements").getIndexInfo().stream()
-            .filter(i -> MeasurementRetentionInitializer.TTL_INDEX.equals(i.getName()))
+            .filter(i -> name.equals(i.getName()))
             .findFirst();
     }
 
@@ -46,6 +54,8 @@ class MeasurementRetentionInitializerIT {
         final Optional<IndexInfo> index = ttlIndex();
         assertThat(index).isPresent();
         assertThat(index.get().getExpireAfter()).contains(Duration.ofDays(30));
+        // The TTL index is the createdAt index; no separate plain one (same key would collide).
+        assertThat(createdAtIndex()).isEmpty();
     }
 
     @Test
@@ -58,11 +68,14 @@ class MeasurementRetentionInitializerIT {
     }
 
     @Test
-    @DisplayName("Given retention disabled (0), when initialized, then no TTL index remains")
-    void givenDisabled_whenInit_thenNoTtlIndex() {
+    @DisplayName("Given retention disabled (0), then the TTL is gone but a plain createdAt index remains")
+    void givenDisabled_whenInit_thenPlainCreatedAtIndexRemains() {
         new MeasurementRetentionInitializer(mongoTemplate, new RetentionProperties(30)).ensureTtlIndex();
         new MeasurementRetentionInitializer(mongoTemplate, new RetentionProperties(0)).ensureTtlIndex();
 
+        // No expiry, but createdAt stays indexed so range/sort queries never do a collection scan.
         assertThat(ttlIndex()).isEmpty();
+        assertThat(createdAtIndex()).isPresent();
+        assertThat(createdAtIndex().orElseThrow().getExpireAfter()).isEmpty();
     }
 }
