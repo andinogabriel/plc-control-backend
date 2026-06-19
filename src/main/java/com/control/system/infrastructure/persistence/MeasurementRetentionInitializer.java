@@ -14,9 +14,11 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 /**
- * Ensures a TTL index on {@code measurements.createdAt} so old readings are dropped automatically
- * (the collection would otherwise grow without bound). The index is dropped and recreated on
- * startup so the configured retention is always applied; a non-positive value disables expiry.
+ * Owns the single {@code measurements.createdAt} index (auto-index creation from {@code @Indexed}
+ * is disabled). With retention on, it is a TTL index that both expires old readings and serves the
+ * date range/sort queries; with retention off it is a plain index, so range/sort queries stay
+ * indexed (never a collection scan). Recreated on startup so a changed retention value applies.
+ * Exactly one of the two exists at a time (Mongo rejects two indexes with the same key).
  */
 @Component
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ import java.time.Duration;
 public class MeasurementRetentionInitializer {
 
     static final String TTL_INDEX = "measurement_ttl";
+    static final String CREATED_AT_INDEX = "measurement_createdAt";
 
     private final MongoTemplate mongoTemplate;
     private final RetentionProperties properties;
@@ -32,20 +35,27 @@ public class MeasurementRetentionInitializer {
     public void ensureTtlIndex() {
         final IndexOperations indexOps = mongoTemplate.indexOps("measurements");
 
-        // Drop the previous TTL index (if any) so a changed retention value takes effect.
-        final boolean exists = indexOps.getIndexInfo().stream().anyMatch(i -> TTL_INDEX.equals(i.getName()));
-        if (exists) {
-            indexOps.dropIndex(TTL_INDEX);
-        }
-
         if (properties.measurementDays() > 0) {
+            // TTL index doubles as the createdAt range/sort index. Drop the plain one (if switching
+            // from disabled) and recreate the TTL so a changed retention value takes effect.
+            dropIfPresent(indexOps, CREATED_AT_INDEX);
+            dropIfPresent(indexOps, TTL_INDEX);
             indexOps.ensureIndex(new Index()
                 .on("createdAt", Sort.Direction.ASC)
                 .named(TTL_INDEX)
                 .expire(Duration.ofDays(properties.measurementDays())));
             log.info("Measurement TTL index ensured: keeping {} day(s)", properties.measurementDays());
         } else {
-            log.info("Measurement retention disabled (no TTL index)");
+            // No expiry, but createdAt must still be indexed for the date range/sort queries.
+            dropIfPresent(indexOps, TTL_INDEX);
+            indexOps.ensureIndex(new Index().on("createdAt", Sort.Direction.ASC).named(CREATED_AT_INDEX));
+            log.info("Measurement retention disabled; plain createdAt index ensured");
+        }
+    }
+
+    private static void dropIfPresent(final IndexOperations indexOps, final String name) {
+        if (indexOps.getIndexInfo().stream().anyMatch(i -> name.equals(i.getName()))) {
+            indexOps.dropIndex(name);
         }
     }
 }

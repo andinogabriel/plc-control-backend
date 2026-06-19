@@ -2,6 +2,7 @@ package com.control.system.web.dto.request;
 
 import com.control.system.domain.enums.SystemStatus;
 import com.control.system.repository.filter.MeasurementSearchFilter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.Instant;
@@ -25,11 +26,17 @@ public record MeasurementHistoryQuery(
     Double temperatureMax,
     Double humidityMin,
     Double humidityMax,
-    Boolean coolerOn
+    Boolean coolerOn,
+
+    @Schema(description = "Para gráficos: si el rango tiene más lecturas que esto, se devuelve una "
+        + "serie down-sampleada repartida en todo el rango (en vez de la página más reciente). "
+        + "Se ignora <= 0 y se acota a 5000.",
+        example = "800")
+    Integer maxPoints
 ) {
 
     public MeasurementSearchFilter toSearchFilter() {
         return new MeasurementSearchFilter(
-            from, to, status, temperatureMin, temperatureMax, humidityMin, humidityMax, coolerOn);
+            from, to, status, temperatureMin, temperatureMax, humidityMin, humidityMax, coolerOn, maxPoints);
     }
 }
