@@ -52,6 +52,7 @@ class OpenApiContractIntegrationTest {
         assertThat(paths.has("/api/measurements")).isTrue();
         assertThat(paths.has("/api/measurements/latest")).isTrue();
         assertThat(paths.has("/api/measurements/stream")).isTrue();
+        assertThat(paths.has("/api/events")).isTrue();
     }
 
     @Test
@@ -63,6 +64,7 @@ class OpenApiContractIntegrationTest {
         assertThat(paths.path("/api/config/latest").has("get")).isTrue();
         assertThat(paths.path("/api/measurements").has("post")).isTrue();
         assertThat(paths.path("/api/measurements").has("get")).isTrue();
+        assertThat(paths.path("/api/events").has("get")).isTrue();
     }
 
     @Test
@@ -73,6 +75,7 @@ class OpenApiContractIntegrationTest {
         assertThat(schemas.has("ConfigRequest")).isTrue();
         assertThat(schemas.has("ConfigResponse")).isTrue();
         assertThat(schemas.has("MeasurementResponse")).isTrue();
+        assertThat(schemas.has("EventResponse")).isTrue();
         assertThat(schemas.has("ErrorResponse")).isTrue();
     }
 }
