@@ -24,9 +24,16 @@ public record EventResponse(
     EventType type,
 
     @Schema(description = "true si es una alarma que el operador debe reconocer")
-    boolean ackable
+    boolean ackable,
+
+    @Schema(description = "true si la alarma ya fue reconocida (ACK)")
+    boolean acknowledged
 ) {
     public static EventResponse of(final String id, final Instant time, final EventType type) {
-        return new EventResponse(id, time, type.severity(), type, type.ackable());
+        return new EventResponse(id, time, type.severity(), type, type.ackable(), false);
+    }
+
+    public EventResponse withAcknowledged(final boolean ack) {
+        return new EventResponse(id, time, severity, type, ackable, ack);
     }
 }
