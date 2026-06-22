@@ -18,6 +18,9 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Máquina de estados](#máquina-de-estados)
 - [Modelo de configuración](#modelo-de-configuración)
 - [Modelo de medición](#modelo-de-medición)
+- [Eventos y alarmas (derivados)](#eventos-y-alarmas-derivados)
+- [Modelo de datos (UML)](#modelo-de-datos-uml)
+- [Arquitectura por capas (UML)](#arquitectura-por-capas-uml)
 - [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
 - [Tiempo real (SSE)](#tiempo-real-sse)
 - [Ejecutar con Docker](#ejecutar-con-docker)
@@ -99,12 +102,16 @@ flowchart LR
         UC4[Consultar historial de configuraciones]
         UC5[Publicar medición]
         UC6[Obtener configuración activa]
+        UC7[Consultar eventos y alarmas]
+        UC8[Reconocer alarma -ACK-]
     end
 
     Admin --> UC1
     Admin --> UC2
     Admin --> UC3
     Admin --> UC4
+    Admin --> UC7
+    Admin --> UC8
     RPi --> UC5
     RPi --> UC6
 ```
@@ -117,6 +124,8 @@ flowchart LR
 | Consultar historial de configuraciones | Administrador | Audita los cambios de umbrales (quién, cuándo, valores)                     | `GET /api/config/history` |
 | Obtener configuración activa           | Raspberry     | Lee los umbrales e intervalo vigentes para aplicar el control               | `GET /api/config/latest`  |
 | Publicar medición                      | Raspberry     | Envía la lectura del sensor y el estado calculado del cooler                | `POST /api/measurements`  |
+| Consultar eventos y alarmas            | Administrador | Lista paginada de eventos derivados (transiciones de estado y del cooler)   | `GET /api/events`         |
+| Reconocer alarma (ACK)                 | Administrador | Marca alarmas como reconocidas (una o todas); conteo global sin reconocer   | `POST /api/events/{id}/ack`, `POST /api/events/ack-all` |
 
 ### Detalle: configurar umbrales (Administrador)
 
@@ -419,6 +428,167 @@ Ejemplo:
   "status": "WARNING_TEMP",
   "createdAt": "2026-06-03T12:05:00Z"
 }
+```
+
+> **Down-sampling para gráficos**: `GET /api/measurements` acepta `maxPoints`. Si el rango tiene
+> más lecturas que ese tope, el backend devuelve una serie **submuestreada repartida en todo el
+> rango** (en vez de la página más reciente), así rangos amplios (mes/año) muestran su período
+> completo. Sin `maxPoints` se devuelve la página estándar. El panel de "Calidad de control" del
+> frontend, en cambio, pide los puntos **sin** `maxPoints` para contar las transiciones reales.
+
+## Eventos y alarmas (derivados)
+
+El sistema no persiste una colección de "eventos": los **deriva del histórico de mediciones** en
+el servidor y los **pagina**, así el cliente recibe solo una página por request (no todo el
+histórico). Un evento es una **transición**:
+
+* cambio de estado: entrada a `WARNING_TEMP` / `WARNING_HUMIDITY` / `CRITICAL`, o **retorno a
+  normal**;
+* acción del cooler: **encendido** / **apagado**.
+
+Cada evento tiene un **id estable** (`<id de la medición que lo disparó>-s|-c`), una severidad y
+un flag `ackable` (solo las alarmas se reconocen). El **reconocimiento (ACK)** sí se persiste en
+la colección `event_acks` (id = id del evento), por lo que es **compartido entre clientes**,
+sobrevive reinicios y el conteo de "sin reconocer" es **global** sobre toda la ventana, no solo la
+página visible.
+
+| Endpoint | Método | Descripción |
+| --- | --- | --- |
+| `/api/events` | `GET` | Página de eventos (más nuevo primero), con `acknowledged` por evento. Params: `from`, `to`, `page`, `size`. |
+| `/api/events/unacknowledged-count` | `GET` | Conteo **global** de alarmas sin reconocer en la ventana (para el badge). |
+| `/api/events/{id}/ack` | `POST` | Reconoce una alarma (idempotente). `204`. |
+| `/api/events/ack-all` | `POST` | Reconoce todas las alarmas sin ACK de la ventana. `204`. |
+
+```mermaid
+flowchart LR
+    M[(measurements)] -->|escaneo ordenado de la ventana| D[Derivar transiciones<br/>estado + cooler]
+    D --> P[Paginar en el servidor]
+    AK[(event_acks)] -->|join por id de evento| P
+    P --> R[EventResponse + acknowledged]
+    R --> FE[Frontend: log de eventos + ACK]
+```
+
+> Derivar al vuelo mantiene el modelo simple (la verdad es la serie de mediciones); como la
+> derivación necesita las lecturas en orden, se escanea la ventana pedida (la ventana acota el
+> trabajo). Un paso futuro de escala sería persistir los eventos a medida que ocurren y paginarlos
+> directamente desde la base.
+
+## Modelo de datos (UML)
+
+Tres colecciones persistidas en MongoDB (`@Document`) y los DTO/enum derivados. `EventResponse` no
+se persiste: se **deriva** de la serie de `Measurement` y se enriquece con el ACK de `EventAck`.
+
+```mermaid
+classDiagram
+    class Config {
+        +String id
+        +double temperatureMin
+        +double temperatureMax
+        +double humidityMin
+        +double humidityMax
+        +double hysteresisTemperature
+        +double hysteresisHumidity
+        +int measurementIntervalSeconds
+        +String createdByName
+        +String createdByEmail
+        +String clientIp
+        +String userAgent
+        +String deviceFingerprint
+        +boolean active
+        +Instant createdAt
+    }
+    class Measurement {
+        +String id
+        +double temperature
+        +double humidity
+        +boolean coolerOn
+        +boolean relayOn
+        +SystemStatus status
+        +Instant createdAt
+    }
+    class EventAck {
+        +String id
+        +Instant ackedAt
+    }
+    class EventResponse {
+        <<DTO derivado>>
+        +String id
+        +Instant time
+        +EventSeverity severity
+        +EventType type
+        +boolean ackable
+        +boolean acknowledged
+    }
+    class SystemStatus {
+        <<enumeration>>
+        NORMAL
+        WARNING_TEMP
+        WARNING_HUMIDITY
+        CRITICAL
+    }
+    class EventType {
+        <<enumeration>>
+        TEMP_OUT_OF_RANGE
+        HUMIDITY_OUT_OF_RANGE
+        CRITICAL
+        RETURN_TO_NORMAL
+        COOLER_ON
+        COOLER_OFF
+    }
+    class EventSeverity {
+        <<enumeration>>
+        INFO
+        SUCCESS
+        WARNING
+        CRITICAL
+    }
+
+    Measurement --> SystemStatus : status
+    Measurement ..> EventResponse : deriva transiciones
+    EventAck ..> EventResponse : reconoce por id
+    EventResponse --> EventType : type
+    EventResponse --> EventSeverity : severity
+    EventType --> EventSeverity : severidad fija
+```
+
+> Colecciones: `configs`, `measurements`, `event_acks`. `Measurement.createdAt` tiene índice TTL
+> (retención configurable) que además sirve para los filtros/orden por fecha; `Config.active` y
+> `Config.createdByEmail` están indexados para la config activa y los filtros de auditoría.
+
+## Arquitectura por capas (UML)
+
+Arquitectura por capas con **una sola dirección de dependencias** (web → service → repository →
+domain). Los controllers no tocan la base; la lógica vive en los services; el acceso a datos está
+detrás de los repositorios de Spring Data.
+
+```mermaid
+flowchart TD
+    subgraph web["web · controllers + DTOs"]
+        CC[ConfigController]
+        MC[MeasurementController]
+        EC[EventController]
+    end
+    subgraph service["service"]
+        CS[ConfigService]
+        MS[MeasurementService]
+        ES[EventService]
+        SS[MeasurementStreamService<br/>SSE]
+    end
+    subgraph repository["repository · Spring Data Mongo"]
+        CR[ConfigRepository]
+        MR[MeasurementRepository]
+        AR[EventAckRepository]
+    end
+    subgraph domain["domain · entities + enums"]
+        Cf[Config]
+        Me[Measurement]
+        Ea[EventAck]
+    end
+
+    web --> service --> repository --> domain
+    repository --> DB[(MongoDB)]
+    ES -.->|deriva de| MR
+    ES --> AR
 ```
 
 ## Seguridad y anti-abuso
