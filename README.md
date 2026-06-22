@@ -481,6 +481,7 @@ se persiste: se **deriva** de la serie de `Measurement` y se enriquece con el AC
 ```mermaid
 classDiagram
     class Config {
+        <<documento · configs>>
         +String id
         +double temperatureMin
         +double temperatureMax
@@ -498,6 +499,7 @@ classDiagram
         +Instant createdAt
     }
     class Measurement {
+        <<documento · measurements>>
         +String id
         +double temperature
         +double humidity
@@ -507,6 +509,7 @@ classDiagram
         +Instant createdAt
     }
     class EventAck {
+        <<documento · event_acks>>
         +String id
         +Instant ackedAt
     }
@@ -550,8 +553,32 @@ classDiagram
     EventResponse --> EventType : type
     EventResponse --> EventSeverity : severity
     EventType --> EventSeverity : severidad fija
+
+    classDef doc fill:#0e7490,stroke:#22d3ee,color:#ffffff
+    classDef dto fill:#b45309,stroke:#fbbf24,color:#ffffff,stroke-dasharray:4 3
+    classDef enumeration fill:#334155,stroke:#94a3b8,color:#e2e8f0
+
+    class Config:::doc
+    class Measurement:::doc
+    class EventAck:::doc
+    class EventResponse:::dto
+    class SystemStatus:::enumeration
+    class EventType:::enumeration
+    class EventSeverity:::enumeration
 ```
 
+> **Leyenda del diagrama** — los colores separan lo que se persiste de lo que no:
+> 🟦 **Documentos** (`Config`, `Measurement`, `EventAck`, en cian) son las **colecciones que se
+> guardan en MongoDB** — el modelo de datos propiamente dicho. 🟧 **DTO derivado** (`EventResponse`,
+> en ámbar con borde punteado) **no se persiste**: se calcula en cada request a partir de las
+> mediciones y los ACK. ⬜ Los enums (gris) son value-types embebidos en los documentos/DTO, no
+> colecciones.
+
+> Sobre los `id`: son `String`, no `UUID`. En `Config` y `Measurement` es el `ObjectId` que genera
+> MongoDB (hex de 24 caracteres); en `EventAck` el `id` **es** el id estable del evento
+> (`<measurementId>-s` para el cambio de estado, `-c` para el cooler), por eso reconocer una alarma
+> es un simple `upsert` por esa clave.
+>
 > Colecciones: `configs`, `measurements`, `event_acks`. `Measurement.createdAt` tiene índice TTL
 > (retención configurable) que además sirve para los filtros/orden por fecha; `Config.active` y
 > `Config.createdByEmail` están indexados para la config activa y los filtros de auditoría.
