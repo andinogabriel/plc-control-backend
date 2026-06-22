@@ -478,48 +478,95 @@ flowchart LR
 Tres colecciones persistidas en MongoDB (`@Document`) y los DTO/enum derivados. `EventResponse` no
 se persiste: se **deriva** de la serie de `Measurement` y se enriquece con el ACK de `EventAck`.
 
-El diagrama agrupa las clases en tres bandas: lo que **se persiste como documento en MongoDB**, lo
-que **se deriva en cada request y no se persiste**, y los **enums** (value-types embebidos). Las
-flechas punteadas son dependencias lógicas (Mongo no tiene FK).
+Diagrama de clases UML: cada atributo en notación `nombre: Tipo`. El **estereotipo** de cada clase
+indica si se persiste — `«document»` son las colecciones de MongoDB (el modelo de datos), `«DTO»` es
+una proyección que se calcula en cada request y **no** se persiste, y `«enumeration»` son los
+value-types embebidos. Las flechas punteadas (`..>`) son dependencias lógicas (Mongo no tiene FK).
 
 ```mermaid
-flowchart TB
-    subgraph persist["🟦 SE PERSISTE EN MONGODB — documentos (una colección cada uno)"]
-        direction LR
-        Config["🗄️ <b>Config</b> · colección 'configs'<br/>+String id<br/>+double temperatureMin / Max<br/>+double humidityMin / Max<br/>+double hysteresisTemperature / Humidity<br/>+int measurementIntervalSeconds<br/>+auditoría: createdByName / Email, clientIp,<br/>userAgent, deviceFingerprint<br/>+boolean active<br/>+Instant createdAt"]
-        Measurement["🗄️ <b>Measurement</b> · colección 'measurements'<br/>+String id<br/>+double temperature<br/>+double humidity<br/>+boolean coolerOn<br/>+boolean relayOn<br/>+SystemStatus status<br/>+Instant createdAt"]
-        EventAck["🗄️ <b>EventAck</b> · colección 'event_acks'<br/>+String id  (= id estable del evento)<br/>+Instant ackedAt"]
-    end
+classDiagram
+    class Config {
+        <<document · configs>>
+        +id: String
+        +temperatureMin: double
+        +temperatureMax: double
+        +humidityMin: double
+        +humidityMax: double
+        +hysteresisTemperature: double
+        +hysteresisHumidity: double
+        +measurementIntervalSeconds: int
+        +createdByName: String
+        +createdByEmail: String
+        +clientIp: String
+        +userAgent: String
+        +deviceFingerprint: String
+        +active: boolean
+        +createdAt: Instant
+    }
+    class Measurement {
+        <<document · measurements>>
+        +id: String
+        +temperature: double
+        +humidity: double
+        +coolerOn: boolean
+        +relayOn: boolean
+        +status: SystemStatus
+        +createdAt: Instant
+    }
+    class EventAck {
+        <<document · event_acks>>
+        +id: String
+        +ackedAt: Instant
+    }
+    class EventResponse {
+        <<DTO · no se persiste>>
+        +id: String
+        +time: Instant
+        +severity: EventSeverity
+        +type: EventType
+        +ackable: boolean
+        +acknowledged: boolean
+    }
+    class SystemStatus {
+        <<enumeration>>
+        NORMAL
+        WARNING_TEMP
+        WARNING_HUMIDITY
+        CRITICAL
+    }
+    class EventType {
+        <<enumeration>>
+        TEMP_OUT_OF_RANGE
+        HUMIDITY_OUT_OF_RANGE
+        CRITICAL
+        RETURN_TO_NORMAL
+        COOLER_ON
+        COOLER_OFF
+    }
+    class EventSeverity {
+        <<enumeration>>
+        INFO
+        SUCCESS
+        WARNING
+        CRITICAL
+    }
 
-    subgraph derived["🟧 NO SE PERSISTE — se calcula en cada request (DTO derivado)"]
-        EventResponse["⚡ <b>EventResponse</b> · DTO (sin colección)<br/>+String id<br/>+Instant time<br/>+EventSeverity severity<br/>+EventType type<br/>+boolean ackable<br/>+boolean acknowledged"]
-    end
-
-    subgraph enums["🔤 ENUMS — value-types embebidos (no son colecciones)"]
-        direction LR
-        SystemStatus["<b>SystemStatus</b><br/>NORMAL · WARNING_TEMP<br/>WARNING_HUMIDITY · CRITICAL"]
-        EventType["<b>EventType</b><br/>TEMP / HUMIDITY_OUT_OF_RANGE · CRITICAL<br/>RETURN_TO_NORMAL · COOLER_ON / OFF"]
-        EventSeverity["<b>EventSeverity</b><br/>INFO · SUCCESS · WARNING · CRITICAL"]
-    end
-
-    Config -. "umbrales e histéresis<br/>parametrizan cada lectura" .-> Measurement
-    Measurement -. "deriva transiciones" .-> EventResponse
-    EventAck -. "reconoce por id" .-> EventResponse
-    Measurement --> SystemStatus
-    EventResponse --> EventType
-    EventResponse --> EventSeverity
-
-    style persist fill:#0e3a47,stroke:#22d3ee,color:#e2f6fb
-    style derived fill:#3a2a0b,stroke:#fbbf24,color:#fdf0d5
-    style enums fill:#1f2937,stroke:#94a3b8,color:#e2e8f0
+    Config ..> Measurement : umbrales e histeresis<br/>parametrizan cada lectura
+    Measurement --> SystemStatus : status
+    Measurement ..> EventResponse : deriva transiciones
+    EventAck ..> EventResponse : reconoce por id
+    EventResponse --> EventType : type
+    EventResponse --> EventSeverity : severity
+    EventType --> EventSeverity : severidad fija
 ```
 
-> **Cómo leerlo de un vistazo** — la banda **🟦 SE PERSISTE EN MONGODB** son las tres colecciones
-> reales (`configs`, `measurements`, `event_acks`): ese es el modelo de datos. La banda **🟧 NO SE
-> PERSISTE** es `EventResponse`, un DTO que el backend **arma en cada request** a partir de las
-> mediciones y los ACK — nunca se guarda. La banda **🔤 ENUMS** son value-types que viajan embebidos
-> dentro de un documento/DTO, tampoco son colecciones. (En GitHub los rellenos de color de mermaid
-> pueden ignorarse, por eso la diferencia está en los **títulos de cada banda**, no solo en el color.)
+> **Cómo leerlo** — el estereotipo en la cabecera de cada clase dice qué se persiste:
+> `«document» <colección>` (en `Config`, `Measurement`, `EventAck`) son las tres **colecciones de
+> MongoDB** — ese es el modelo de datos. `«DTO» no se persiste` (en `EventResponse`) es una
+> proyección que el backend **arma en cada request** a partir de las mediciones y los ACK; nunca se
+> guarda. `«enumeration»` son value-types embebidos dentro de un documento/DTO, no colecciones.
+> (Se usan estereotipos en vez de color porque GitHub puede ignorar el relleno de color de mermaid,
+> pero el texto del estereotipo siempre se renderiza.)
 
 > Sobre los `id`: son `String`, no `UUID`. En `Config` y `Measurement` es el `ObjectId` que genera
 > MongoDB (hex de 24 caracteres); en `EventAck` el `id` **es** el id estable del evento
