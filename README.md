@@ -543,6 +543,7 @@ classDiagram
         CRITICAL
     }
 
+    Config ..> Measurement : umbrales e histeresis<br/>parametrizan cada lectura
     Measurement --> SystemStatus : status
     Measurement ..> EventResponse : deriva transiciones
     EventAck ..> EventResponse : reconoce por id
@@ -554,6 +555,12 @@ classDiagram
 > Colecciones: `configs`, `measurements`, `event_acks`. `Measurement.createdAt` tiene índice TTL
 > (retención configurable) que además sirve para los filtros/orden por fecha; `Config.active` y
 > `Config.createdByEmail` están indexados para la config activa y los filtros de auditoría.
+>
+> La dependencia `Config ..> Measurement` es **lógica, no física** (Mongo es no relacional, no hay
+> FK ni se referencia el `id` de la config en la medición): la `Config` **activa** define los
+> umbrales y la histéresis con los que el gateway evalúa cada lectura, y de ahí salen `coolerOn`,
+> `relayOn` y `status`. Es una relación de *parametrización* (la config vigente al momento de medir),
+> no de pertenencia.
 
 ## Arquitectura por capas (UML)
 
