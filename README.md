@@ -262,7 +262,11 @@ Ejemplo:
 
 ## Lógica de control
 
-La lógica de control utiliza histéresis para evitar que el relay active y desactive el cooler constantemente cerca del umbral.
+La lógica de control utiliza histéresis para evitar que el relay active y desactive el cooler
+constantemente cerca del umbral. La **histéresis *es* la zona muerta (deadband)**: en vez de un
+único punto de conmutación, hay dos umbrales separados —uno para encender y otro, más bajo, para
+apagar— y **entre ambos no se cambia de estado** (se mantiene el anterior). Esa franja intermedia es
+la zona muerta, y su ancho es `hysteresisTemperature` (y `hysteresisHumidity` para la humedad).
 
 ```mermaid
 flowchart TD
@@ -272,7 +276,7 @@ flowchart TD
     CheckHigh -- No --> CheckLow{Temp <= TempMax - HistTemp<br/>y Hum <= HumMax - HistHum?}
 
     CheckLow -- Sí --> CoolerOff[Cooler OFF]
-    CheckLow -- No --> Keep[Mantener estado anterior]
+    CheckLow -- No --> Keep[Zona muerta deadband<br/>mantener estado anterior]
 
     CoolerOn --> Publish[Publicar medición]
     CoolerOff --> Publish
@@ -287,6 +291,27 @@ Si humedad >= humidityMax → encender cooler.
 Si temperatura <= temperatureMax - hysteresisTemperature
 y humedad <= humidityMax - hysteresisHumidity → apagar cooler.
 ```
+
+Vista de la banda (para la temperatura; la humedad es análoga):
+
+```text
+   COOLER OFF          ZONA MUERTA (deadband)          COOLER ON
+                       ancho = hysteresisTemperature
+ ─────────────────●═══════════════════════════════●───────────────►  temperatura
+                  │                                │
+        tempMax - hysteresisTemperature         tempMax
+        (apaga al bajar)                        (enciende al subir)
+```
+
+Dentro de la zona muerta el actuador **conserva** el estado: si venía encendido sigue encendido
+hasta cruzar el límite inferior, y si venía apagado sigue apagado hasta cruzar `tempMax`. Eso es lo
+que evita el *chattering* (encendido/apagado rápido del relay) cuando la medición oscila alrededor
+del umbral.
+
+> **Histéresis de un solo lado (enfriamiento).** La zona muerta se aplica sobre el **máximo**
+> (`tempMax`/`humMax`), porque el único actuador es el cooler. Los mínimos (`temperatureMin`/
+> `humidityMin`) **no** accionan un actuador con su propia histéresis: sólo se usan para clasificar
+> el `status` de la medición (fuera de rango / warning).
 
 ## Máquina de estados
 
