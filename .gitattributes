@@ -2,6 +2,8 @@
 # regardless of the OS where the repo is cloned or edited. A CRLF in gateway.env would append
 # a stray '\r' to API_BASE and break the HTTP requests; a CRLF in gradlew/Dockerfile breaks the
 # build on Linux.
+# Windows batch files must check out with CRLF (gradlew.bat).
+*.bat           text eol=crlf
 *.py            text eol=lf
 *.service       text eol=lf
 *.env.example   text eol=lf
