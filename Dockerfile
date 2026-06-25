@@ -28,7 +28,8 @@ EXPOSE 8080
 # Honour container memory limits instead of a fixed -Xmx (good for small paid hosts).
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
 
+# Probe the liveness endpoint on whatever port the app binds to ($PORT on Railway, else 8080).
 HEALTHCHECK --interval=30s --timeout=4s --start-period=40s --retries=3 \
-  CMD curl -fsS http://localhost:8080/actuator/health/liveness || exit 1
+  CMD curl -fsS "http://localhost:${PORT:-8080}/actuator/health/liveness" || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

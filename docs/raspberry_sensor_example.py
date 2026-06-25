@@ -10,8 +10,15 @@ para que el ciclo sea defendible de punta a punta sin OpenPLC.
 
 Dependencias:
     pip install requests adafruit-circuitpython-dht RPi.GPIO
+
+Configuración por entorno (para apuntar al backend en la nube, p. ej. Railway):
+    export API_BASE="https://tu-backend.up.railway.app"   # sin barra final
+    # Solo si el backend tiene APP_CONFIG_API_KEY (la Raspberry no la necesita para
+    # POST /api/measurements; sí haría falta si publicara config):
+    export CONFIG_API_KEY="..."
 """
 
+import os
 import time
 import requests
 
@@ -19,11 +26,21 @@ import requests
 # import adafruit_dht
 # import RPi.GPIO as GPIO
 
-API_BASE = "http://localhost:8080"
+# Base URL of the backend API. Defaults to localhost for dev; set API_BASE to the public
+# HTTPS URL of the deployed backend (Railway) in production. Trailing slash is stripped.
+API_BASE = os.environ.get("API_BASE", "http://localhost:8080").rstrip("/")
+# Optional: only needed if this client ever POSTs config (publishing measurements does not
+# require it). Sent as the X-Api-Key header when present.
+CONFIG_API_KEY = os.environ.get("CONFIG_API_KEY", "")
 RELAY_PIN = 17
 # Fallback interval (seconds) used only until the active config is fetched. The real cadence
 # comes from the config's measurementIntervalSeconds, configurable from the web UI.
 DEFAULT_INTERVAL_SECONDS = 30
+
+# Reuse a single HTTP connection (keep-alive) across the loop instead of opening one per request.
+session = requests.Session()
+if CONFIG_API_KEY:
+    session.headers["X-Api-Key"] = CONFIG_API_KEY
 
 # --- Simulación de hardware (reemplazar por lectura real del DHT y GPIO) ---
 def read_sensor():
@@ -39,7 +56,7 @@ def set_relay(on: bool):
 
 def get_active_config():
     try:
-        r = requests.get(f"{API_BASE}/api/config/latest", timeout=5)
+        r = session.get(f"{API_BASE}/api/config/latest", timeout=5)
         if r.status_code == 200:
             return r.json()
     except requests.RequestException as e:
@@ -78,7 +95,7 @@ def publish_measurement(temp, hum, cooler_on, relay_on, status):
         "status": status,
     }
     try:
-        r = requests.post(f"{API_BASE}/api/measurements", json=payload, timeout=5)
+        r = session.post(f"{API_BASE}/api/measurements", json=payload, timeout=5)
         print(f"[POST] {r.status_code} -> {payload}")
     except requests.RequestException as e:
         print(f"[ERROR] no se pudo publicar la medición: {e}")
