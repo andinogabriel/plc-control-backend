@@ -158,7 +158,45 @@ python3 raspberry_sensor_example.py
   limiting por IP (30 req/min, sobra para ~1 cada 10–30 s).
 - La cadencia real la marca `measurementIntervalSeconds` de la config activa (se cambia desde el
   panel); el `DEFAULT_INTERVAL_SECONDS` solo se usa hasta obtener la primera config.
-- Para que corra sola al bootear, registrala como servicio `systemd` con las `Environment=API_BASE=...`.
+
+### Correr desatendido (systemd)
+
+Para que el gateway **arranque solo al bootear, se reinicie si crashea y apague el cooler al
+detenerse**, instalalo como servicio. En esta carpeta hay dos archivos listos:
+[`gateway.env.example`](gateway.env.example) y [`control-gateway.service`](control-gateway.service).
+
+```bash
+# en la Raspberry, con el proyecto en /home/pi/control-gateway/
+cp gateway.env.example gateway.env          # y completá API_BASE
+sudo cp control-gateway.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now control-gateway.service
+journalctl -u control-gateway -f            # ver logs en vivo
+```
+
+El script ([`raspberry_sensor_example.py`](raspberry_sensor_example.py)) ya contempla los casos
+esquina de operación: reintenta la lectura del DHT, aplica *backoff* si el backend está caído o
+responde `429`, respeta un piso de intervalo para no gatillar el rate limiting, y **apaga el
+relay/cooler al recibir la señal de parada** (no deja el cooler prendido si el servicio se detiene).
+
+### Casos esquina a tener en cuenta
+
+| Situación | Qué pasa / riesgo | Cómo está cubierto / qué hacer |
+| --- | --- | --- |
+| **Reloj de la Pi desfasado** (no tiene RTC) | TLS al backend HTTPS falla (cert "not yet valid") | El unit espera `time-sync.target`; asegurá NTP activo (`timedatectl` → *System clock synchronized: yes*). |
+| **Backend caído / sin internet** | Las requests fallan | El script loguea y aplica *backoff* creciente (hasta 5 min); reintenta solo. No se cae. |
+| **`429 Too Many Requests`** | El backend limita por IP | El script detecta 429 y espera más entre ciclos; además hay piso de `MIN_INTERVAL_SECONDS`. |
+| **Intervalo configurado muy chico** (desde el panel) | La Pi publicaría demasiado seguido → 429/blacklist | Se aplica un piso de 5 s aunque la config pida menos. |
+| **Lectura del DHT falla** (CRC/timeout) | Mediciones perdidas o basura | Reintenta hasta 3 veces; si falla, **omite el ciclo** (no inventa valores ni toca el relay). |
+| **El servicio se detiene/reinicia** | El cooler podría quedar encendido | El script apaga el relay en el `finally`; el unit da 15 s (`TimeoutStopSec`) para hacerlo. |
+| **Crash-loop** (falla y reinicia sin parar) | Martillaría el backend y dispararía su blacklist | `StartLimitBurst=5/60s` corta el loop; rearmar con `systemctl reset-failed`. |
+| **Payload inválido** (valor fuera de rango) | El backend responde `400` | El script lo loguea y sigue; revisá calibración del sensor. |
+| **Corte de luz / reboot** | Habría que relanzar a mano | `enable` + `Restart=always` lo levantan solo al volver. |
+| **Atlas M0 lleno** (512 MB) | Inserts fallan al crecer el historial | Bajá `APP_RETENTION_MEASUREMENT_DAYS` (TTL borra lo viejo) o subí de tier. |
+| **Cambia la URL del backend** | La Pi deja de publicar | Editá `API_BASE` en `gateway.env` y `sudo systemctl restart control-gateway`. |
+
+> El `verify` de TLS queda **activado** (no usar `verify=False`): si falla por certificado, casi
+> siempre es el reloj de la Pi, no el backend.
 
 ## Referencia completa de variables de entorno
 
