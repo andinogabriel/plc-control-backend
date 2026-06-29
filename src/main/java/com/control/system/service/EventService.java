@@ -4,6 +4,7 @@ import com.control.system.domain.entity.EventAck;
 import com.control.system.domain.entity.Measurement;
 import com.control.system.domain.enums.EventType;
 import com.control.system.domain.enums.SystemStatus;
+import com.control.system.infrastructure.config.SensorProperties;
 import com.control.system.repository.EventAckRepository;
 import com.control.system.repository.MeasurementRepository;
 import com.control.system.web.dto.response.EventResponse;
@@ -45,6 +46,7 @@ public class EventService {
     private final MeasurementRepository measurementRepository;
     private final EventAckRepository eventAckRepository;
     private final DateRangeValidator dateRangeValidator;
+    private final SensorProperties sensorProperties;
 
     public PageResponse<EventResponse> getEvents(final Instant from, final Instant to, final Pageable pageable) {
         final List<EventResponse> events = deriveWindow(from, to);
@@ -92,7 +94,28 @@ public class EventService {
         dateRangeValidator.validate(from, to);
         final Instant effectiveTo = to != null ? to : Instant.now();
         final Instant effectiveFrom = from != null ? from : effectiveTo.minus(DEFAULT_WINDOW);
-        return deriveEvents(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(effectiveFrom, effectiveTo));
+        final List<Measurement> window =
+            measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(effectiveFrom, effectiveTo);
+        final List<EventResponse> events = deriveEvents(window);
+        maybeAddOfflineEvent(events, window, to);
+        return events;
+    }
+
+    /**
+     * Live view only ({@code to == null}, i.e. up to "now"): if the most recent reading is older
+     * than the offline threshold, surface a synthetic SENSOR_OFFLINE alarm as the newest event. Its
+     * id is tied to that last reading, so the ACK sticks for this outage and a later outage (after a
+     * new reading arrives) is a distinct alarm. Historical queries (explicit {@code to}) never get it.
+     */
+    private void maybeAddOfflineEvent(final List<EventResponse> events, final List<Measurement> window, final Instant to) {
+        if (to != null || window.isEmpty()) {
+            return;
+        }
+        final Measurement latest = window.get(window.size() - 1);
+        final Instant offlineSince = latest.getCreatedAt().plusSeconds(sensorProperties.offlineAfterSeconds());
+        if (Instant.now().isAfter(offlineSince)) {
+            events.add(0, EventResponse.of("offline-" + latest.getId(), offlineSince, EventType.SENSOR_OFFLINE));
+        }
     }
 
     private static List<String> ackableIds(final List<EventResponse> events) {

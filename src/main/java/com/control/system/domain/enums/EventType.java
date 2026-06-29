@@ -10,7 +10,9 @@ public enum EventType {
     CRITICAL(EventSeverity.CRITICAL, true),
     RETURN_TO_NORMAL(EventSeverity.SUCCESS, false),
     COOLER_ON(EventSeverity.INFO, false),
-    COOLER_OFF(EventSeverity.INFO, false);
+    COOLER_OFF(EventSeverity.INFO, false),
+    /** The gateway stopped publishing: the newest reading is older than the offline threshold. */
+    SENSOR_OFFLINE(EventSeverity.WARNING, true);
 
     private final EventSeverity severity;
     private final boolean ackable;

@@ -51,6 +51,7 @@ class OpenApiContractIntegrationTest {
         assertThat(paths.has("/api/config/history")).isTrue();
         assertThat(paths.has("/api/measurements")).isTrue();
         assertThat(paths.has("/api/measurements/latest")).isTrue();
+        assertThat(paths.has("/api/measurements/status")).isTrue();
         assertThat(paths.has("/api/measurements/stream")).isTrue();
         assertThat(paths.has("/api/events")).isTrue();
     }

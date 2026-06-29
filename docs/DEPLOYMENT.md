@@ -209,6 +209,7 @@ relay/cooler al recibir la señal de parada** (no deja el cooler prendido si el 
 | `PORT` | `8080` | No (la inyecta Railway) | Puerto de escucha. **No setear a mano** en Railway. |
 | `APP_CONFIG_API_KEY` | *(vacío)* | Recomendada | Si se setea, `POST /api/config` exige header `X-Api-Key`. |
 | `APP_RETENTION_MEASUREMENT_DAYS` | `90` | No | Días de retención de mediciones (índice TTL). `0` desactiva. Bajalo en M0. |
+| `APP_SENSOR_OFFLINE_AFTER_SECONDS` | `3600` | No | Segundos sin mediciones tras los cuales la Raspberry se marca offline (`/api/measurements/status` + alarma `SENSOR_OFFLINE`). |
 | `LOG_LEVEL` | `INFO` | No | Nivel de log de la app (`DEBUG` para trazas). |
 | `MAX_BODY_BYTES` | `8192` | No | Tamaño máx. del body; por encima responde `413`. |
 | `JAVA_OPTS` | `-XX:MaxRAMPercentage=75.0` | No | Flags de la JVM (memoria/GC). Definido en el Dockerfile. |

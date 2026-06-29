@@ -5,14 +5,15 @@ import com.control.system.domain.entity.Measurement;
 import com.control.system.domain.enums.EventSeverity;
 import com.control.system.domain.enums.EventType;
 import com.control.system.domain.enums.SystemStatus;
+import com.control.system.infrastructure.config.SensorProperties;
 import com.control.system.repository.EventAckRepository;
 import com.control.system.repository.MeasurementRepository;
 import com.control.system.web.dto.response.EventResponse;
 import com.control.system.web.dto.response.PageResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +30,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class EventServiceTest {
 
+    private static final long OFFLINE_AFTER_SECONDS = 3600;
+
     @Mock
     private MeasurementRepository measurementRepository;
     @Mock
@@ -36,13 +39,22 @@ class EventServiceTest {
     @Mock
     private DateRangeValidator dateRangeValidator;
 
-    @InjectMocks
     private EventService eventService;
 
+    @BeforeEach
+    void setUp() {
+        eventService = new EventService(measurementRepository, eventAckRepository, dateRangeValidator,
+            new SensorProperties(OFFLINE_AFTER_SECONDS));
+    }
+
     private Measurement m(final String id, final String at, final SystemStatus status, final boolean cooler) {
+        return at(id, Instant.parse(at), status, cooler);
+    }
+
+    private Measurement at(final String id, final Instant at, final SystemStatus status, final boolean cooler) {
         return Measurement.builder()
             .id(id).temperature(20).humidity(50).coolerOn(cooler).relayOn(cooler)
-            .status(status).createdAt(Instant.parse(at)).build();
+            .status(status).createdAt(at).build();
     }
 
     @Test
@@ -71,13 +83,15 @@ class EventServiceTest {
 
     @Test
     void paginatesDerivedEventsAndFlagsAcknowledged() {
+        // Fresh readings (latest within the offline threshold), so no SENSOR_OFFLINE alarm is added.
+        final Instant base = Instant.now().minusSeconds(600);
         when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
-            m("1", "2026-06-01T10:00:00Z", SystemStatus.NORMAL, false),
-            m("2", "2026-06-01T10:01:00Z", SystemStatus.WARNING_TEMP, false),
-            m("3", "2026-06-01T10:02:00Z", SystemStatus.NORMAL, false),
-            m("4", "2026-06-01T10:03:00Z", SystemStatus.CRITICAL, false),
-            m("5", "2026-06-01T10:04:00Z", SystemStatus.NORMAL, false),
-            m("6", "2026-06-01T10:05:00Z", SystemStatus.WARNING_HUMIDITY, false)
+            at("1", base, SystemStatus.NORMAL, false),
+            at("2", base.plusSeconds(60), SystemStatus.WARNING_TEMP, false),
+            at("3", base.plusSeconds(120), SystemStatus.NORMAL, false),
+            at("4", base.plusSeconds(180), SystemStatus.CRITICAL, false),
+            at("5", base.plusSeconds(240), SystemStatus.NORMAL, false),
+            at("6", base.plusSeconds(300), SystemStatus.WARNING_HUMIDITY, false)
         ));
         // Newest first, the first page holds "6-s" (HUMIDITY) and "5-s" (RETURN). "6-s" is acked.
         when(eventAckRepository.findAllById(anyIterable())).thenReturn(List.of(new EventAck("6-s", Instant.now())));
@@ -94,10 +108,11 @@ class EventServiceTest {
 
     @Test
     void countsUnacknowledgedAlarmsAcrossTheWindow() {
+        final Instant base = Instant.now().minusSeconds(600);
         when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
-            m("1", "2026-06-01T10:00:00Z", SystemStatus.NORMAL, false),
-            m("2", "2026-06-01T10:01:00Z", SystemStatus.WARNING_TEMP, false),  // alarm 2-s
-            m("3", "2026-06-01T10:02:00Z", SystemStatus.CRITICAL, false)        // alarm 3-s
+            at("1", base, SystemStatus.NORMAL, false),
+            at("2", base.plusSeconds(60), SystemStatus.WARNING_TEMP, false),  // alarm 2-s
+            at("3", base.plusSeconds(120), SystemStatus.CRITICAL, false)       // alarm 3-s
         ));
         when(eventAckRepository.findAllById(anyIterable())).thenReturn(List.of(new EventAck("3-s", Instant.now())));
 
@@ -106,10 +121,11 @@ class EventServiceTest {
 
     @Test
     void acknowledgeAllSavesOnlyTheNotYetAcknowledgedAlarms() {
+        final Instant base = Instant.now().minusSeconds(600);
         when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
-            m("1", "2026-06-01T10:00:00Z", SystemStatus.NORMAL, false),
-            m("2", "2026-06-01T10:01:00Z", SystemStatus.WARNING_TEMP, false),  // alarm 2-s
-            m("3", "2026-06-01T10:02:00Z", SystemStatus.CRITICAL, false)        // alarm 3-s (already acked)
+            at("1", base, SystemStatus.NORMAL, false),
+            at("2", base.plusSeconds(60), SystemStatus.WARNING_TEMP, false),  // alarm 2-s
+            at("3", base.plusSeconds(120), SystemStatus.CRITICAL, false)       // alarm 3-s (already acked)
         ));
         when(eventAckRepository.findAllById(anyIterable())).thenReturn(List.of(new EventAck("3-s", Instant.now())));
 
@@ -130,5 +146,50 @@ class EventServiceTest {
         verify(eventAckRepository).save(captor.capture());
         assertThat(captor.getValue().getId()).isEqualTo("42-s");
         assertThat(captor.getValue().getAckedAt()).isNotNull();
+    }
+
+    @Test
+    void emitsSensorOfflineAlarmWhenLatestReadingIsStaleOnLiveWindow() {
+        final Instant stale = Instant.now().minusSeconds(OFFLINE_AFTER_SECONDS * 2); // well past the threshold
+        when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
+            at("1", stale.minusSeconds(60), SystemStatus.NORMAL, false),
+            at("2", stale, SystemStatus.NORMAL, false)
+        ));
+        when(eventAckRepository.findAllById(anyIterable())).thenReturn(List.of());
+
+        final PageResponse<EventResponse> page = eventService.getEvents(null, null, PageRequest.of(0, 20));
+
+        final EventResponse newest = page.content().get(0);
+        assertThat(newest.type()).isEqualTo(EventType.SENSOR_OFFLINE);
+        assertThat(newest.id()).isEqualTo("offline-2"); // tied to the last reading's id
+        assertThat(newest.severity()).isEqualTo(EventSeverity.WARNING);
+        assertThat(newest.ackable()).isTrue();
+        // The offline alarm also lights the global unacknowledged badge.
+        assertThat(eventService.countUnacknowledged(null, null)).isEqualTo(1);
+    }
+
+    @Test
+    void noSensorOfflineAlarmWhenLatestReadingIsFresh() {
+        when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
+            at("1", Instant.now().minusSeconds(120), SystemStatus.NORMAL, false),
+            at("2", Instant.now().minusSeconds(30), SystemStatus.NORMAL, false)
+        ));
+
+        final PageResponse<EventResponse> page = eventService.getEvents(null, null, PageRequest.of(0, 20));
+
+        assertThat(page.content()).noneMatch(e -> e.type() == EventType.SENSOR_OFFLINE);
+    }
+
+    @Test
+    void noSensorOfflineAlarmForHistoricalWindowWithExplicitTo() {
+        final Instant stale = Instant.now().minusSeconds(OFFLINE_AFTER_SECONDS * 2);
+        when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
+            at("1", stale.minusSeconds(60), SystemStatus.NORMAL, false),
+            at("2", stale, SystemStatus.NORMAL, false)
+        ));
+
+        final PageResponse<EventResponse> page = eventService.getEvents(null, Instant.now(), PageRequest.of(0, 20));
+
+        assertThat(page.content()).noneMatch(e -> e.type() == EventType.SENSOR_OFFLINE);
     }
 }
