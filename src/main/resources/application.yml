@@ -17,7 +17,12 @@ spring:
         default-page-size: 20
 
 server:
-  port: 8080
+  # Bind to the port the platform injects ($PORT on Railway/Render/Heroku); 8080 locally.
+  port: ${PORT:8080}
+  # Running behind a reverse proxy (Railway/Render/Nginx): trust X-Forwarded-* so the app
+  # sees the real client scheme/host/IP (correct https URLs, secure flags, getRemoteAddr).
+  # ClientIpResolver already reads X-Forwarded-For; this aligns the rest of the stack.
+  forward-headers-strategy: framework
   tomcat:
     # Hard backstops at the container level (defense in depth, in addition to RequestSizeFilter).
     max-http-form-post-size: 16KB

@@ -1,0 +1,40 @@
+# systemd unit para correr el gateway de la Raspberry de forma desatendida.
+#
+# Instalación (en la Raspberry):
+#   1. Copiá el proyecto a /home/pi/control-gateway/ (al menos raspberry_sensor_example.py).
+#   2. cp gateway.env.example gateway.env  y completá API_BASE.
+#   3. sudo cp control-gateway.service /etc/systemd/system/
+#   4. sudo systemctl daemon-reload
+#   5. sudo systemctl enable --now control-gateway.service
+#   Logs en vivo:  journalctl -u control-gateway -f
+#
+# Ajustá User=, WorkingDirectory= y las rutas si no usás el usuario "pi".
+
+[Unit]
+Description=Control System - gateway de la Raspberry (sensor DHT -> backend)
+# Esperar a que haya red Y reloj sincronizado (NTP): sin hora correcta, TLS al backend HTTPS falla.
+Wants=network-online.target
+After=network-online.target time-sync.target
+# Si crashea más de 5 veces en 60 s, dejá de reintentar (evita un loop que martille al backend
+# y dispare su blacklist por IP). Se rearma con: systemctl reset-failed control-gateway.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/control-gateway
+EnvironmentFile=/home/pi/control-gateway/gateway.env
+ExecStart=/usr/bin/python3 /home/pi/control-gateway/raspberry_sensor_example.py
+# Reiniciar siempre que termine de forma inesperada, con 5 s de espera entre intentos.
+Restart=always
+RestartSec=5
+# Mandar SIGTERM al parar y dar 15 s para que el script apague el relay/cooler antes del SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+# Logs a journald (verlos con journalctl -u control-gateway).
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

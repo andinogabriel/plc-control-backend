@@ -24,6 +24,7 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
 - [Tiempo real (SSE)](#tiempo-real-sse)
 - [Ejecutar con Docker](#ejecutar-con-docker)
+- [Despliegue (producción)](#despliegue-producción)
 - [Variables de entorno](#variables-de-entorno)
 - [Datos de prueba](#datos-de-prueba)
 - [Reconstruir / limpiar (Docker)](#reconstruir--limpiar-docker)
@@ -699,6 +700,27 @@ Swagger UI: http://localhost:8080/swagger-ui.html
 Mongo Express: http://localhost:8081
 ```
 
+## Despliegue (producción)
+
+Para poner el sistema en internet —de modo que **la Raspberry Pi y el panel consulten la API por una
+URL pública HTTPS**— hay una guía dedicada, barata y paso a paso:
+**[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)**.
+
+Topología recomendada (demo de uno o dos meses, ~US$5/mes en total):
+
+| Pieza | Servicio | Costo |
+| --- | --- | --- |
+| MongoDB | Atlas M0 | Gratis |
+| Backend (este repo) | Railway (build desde el `Dockerfile`) | ~US$5/mes |
+| Frontend | Cloudflare Pages | Gratis |
+| Gateway | Raspberry Pi (apunta a la URL del backend) | — |
+
+El repo ya viene listo para Railway: el backend escucha en el `$PORT` que inyecta la plataforma,
+respeta `X-Forwarded-*` detrás del proxy, y hay un [`railway.json`](railway.json) con el build por
+Docker y el healthcheck a `/actuator/health/readiness`. La guía detalla **todas** las variables de
+entorno de cada componente (backend, frontend y Raspberry), el CORS, el smoke test y los problemas
+frecuentes.
+
 ## Variables de entorno
 
 Todo es configurable por variable de entorno; los valores por defecto sirven para correr el
@@ -706,8 +728,9 @@ proyecto sin configuración previa. Las más usadas:
 
 | Variable | Default | Para qué sirve |
 | --- | --- | --- |
-| `MONGODB_URI` | `mongodb://localhost:27017/controlsystem` | Conexión a MongoDB. |
-| `CORS_ORIGINS` | `http://localhost:5173` | Orígenes permitidos para el frontend (coma-separados). |
+| `MONGODB_URI` | `mongodb://localhost:27017/controlsystem` | Conexión a MongoDB (Atlas en producción). |
+| `CORS_ORIGINS` | `http://localhost:5173` | Orígenes permitidos para el frontend (coma-separados, sin barra final). |
+| `PORT` | `8080` | Puerto de escucha. Lo inyecta el host (Railway/Render); **no setear a mano** ahí. |
 | `LOG_LEVEL` | `INFO` | Nivel de log de la app. Poné `DEBUG` para trazas verbosas en local. |
 | `APP_RETENTION_MEASUREMENT_DAYS` | `90` | Días que se conservan las mediciones (índice TTL). `0` desactiva el borrado. |
 | `APP_CONFIG_API_KEY` | *(vacío)* | Si se setea, `POST /api/config` exige el header `X-Api-Key`. Vacío = sin auth. |
