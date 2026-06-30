@@ -470,7 +470,12 @@ histórico). Un evento es una **transición**:
 
 * cambio de estado: entrada a `WARNING_TEMP` / `WARNING_HUMIDITY` / `CRITICAL`, o **retorno a
   normal**;
-* acción del cooler: **encendido** / **apagado**.
+* acción del cooler: **encendido** / **apagado**;
+* **sensor offline** (`SENSOR_OFFLINE`): alarma sintética que aparece cuando la **última medición
+  es más vieja que el umbral de inactividad** (`app.sensor.offline-after-seconds`, 1 h por defecto).
+  Solo se agrega en la vista viva (sin `to` explícito), como el evento más nuevo; su id
+  (`offline-<id de la última medición>`) ata el ACK a esa caída puntual. Así, aunque nadie tenga el
+  panel abierto, la próxima consulta de eventos/badge refleja que la Raspberry dejó de publicar.
 
 Cada evento tiene un **id estable** (`<id de la medición que lo disparó>-s|-c`), una severidad y
 un flag `ackable` (solo las alarmas se reconocen). El **reconocimiento (ACK)** sí se persiste en
@@ -484,6 +489,12 @@ página visible.
 | `/api/events/unacknowledged-count` | `GET` | Conteo **global** de alarmas sin reconocer en la ventana (para el badge). |
 | `/api/events/{id}/ack` | `POST` | Reconoce una alarma (idempotente). `204`. |
 | `/api/events/ack-all` | `POST` | Reconoce todas las alarmas sin ACK de la ventana. `204`. |
+
+> **Estado de actividad del sensor.** Como el backend es pasivo (solo guarda lo que llega), la
+> "vitalidad" de la Raspberry se infiere de la antigüedad de la última medición. `GET
+> /api/measurements/status` lo expone explícitamente: `{ online, lastMeasurementAt, ageSeconds,
+> offlineAfterSeconds }` — `online=false` cuando la última lectura supera `app.sensor.offline-after-seconds`
+> (1 h por defecto). Es la misma condición que dispara la alarma `SENSOR_OFFLINE`.
 
 ```mermaid
 flowchart LR
@@ -568,6 +579,7 @@ classDiagram
         RETURN_TO_NORMAL
         COOLER_ON
         COOLER_OFF
+        SENSOR_OFFLINE
     }
     class EventSeverity {
         <<enumeration>>
@@ -733,6 +745,7 @@ proyecto sin configuración previa. Las más usadas:
 | `PORT` | `8080` | Puerto de escucha. Lo inyecta el host (Railway/Render); **no setear a mano** ahí. |
 | `LOG_LEVEL` | `INFO` | Nivel de log de la app. Poné `DEBUG` para trazas verbosas en local. |
 | `APP_RETENTION_MEASUREMENT_DAYS` | `90` | Días que se conservan las mediciones (índice TTL). `0` desactiva el borrado. |
+| `APP_SENSOR_OFFLINE_AFTER_SECONDS` | `3600` | Segundos sin mediciones nuevas tras los cuales la Raspberry se considera offline (estado `/status` + alarma `SENSOR_OFFLINE`). |
 | `APP_CONFIG_API_KEY` | *(vacío)* | Si se setea, `POST /api/config` exige el header `X-Api-Key`. Vacío = sin auth. |
 | `MAX_BODY_BYTES` | `8192` | Tamaño máximo del body; por encima responde `413`. |
 | `APP_STREAM_ENABLED` | `true` | Habilita el stream SSE de mediciones en tiempo real. |

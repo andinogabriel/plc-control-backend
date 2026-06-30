@@ -7,6 +7,7 @@ import com.control.system.web.dto.request.MeasurementHistoryQuery;
 import com.control.system.web.dto.request.MeasurementRequest;
 import com.control.system.web.dto.response.MeasurementResponse;
 import com.control.system.web.dto.response.PageResponse;
+import com.control.system.web.dto.response.SensorStatusResponse;
 import com.control.system.web.exception.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -71,6 +72,16 @@ public class MeasurementController {
     })
     public MeasurementResponse getLatestMeasurement() {
         return measurementService.getLatestMeasurement();
+    }
+
+    @GetMapping("/status")
+    @Operation(summary = "Estado de actividad del sensor (online/offline)",
+        description = "Indica si la Raspberry/gateway sigue publicando: online=true cuando la última "
+            + "medición está dentro del umbral de inactividad (APP_SENSOR_OFFLINE_AFTER_SECONDS, 1 h por "
+            + "defecto). Incluye la antigüedad en segundos. No usa rate limiting de escritura; es de sólo lectura.")
+    @ApiResponse(responseCode = "200", description = "Estado del sensor")
+    public SensorStatusResponse getSensorStatus() {
+        return measurementService.getSensorStatus();
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
