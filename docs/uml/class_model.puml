@@ -71,11 +71,24 @@ enum EventSeverity {
   CRITICAL
 }
 
-Config ..> Measurement : umbrales e histeresis\nparametrizan cada lectura
-Measurement --> SystemStatus : status
-Measurement ..> EventResponse : deriva transiciones
-EventAck ..> EventResponse : reconoce por id
-EventResponse --> EventType : type
-EventResponse --> EventSeverity : severity
-EventType --> EventSeverity : severidad fija
+Config "1 activa" ..> "0..*" Measurement : umbrales e histeresis\nparametrizan cada lectura
+Measurement "1" --> "1" SystemStatus : status
+Measurement "1" ..> "0..1" EventResponse : deriva transiciones
+EventAck "1" ..> "1" EventResponse : reconoce por id
+EventResponse "1" --> "1" EventType : type
+EventResponse "1" --> "1" EventSeverity : severity
+EventType "1" --> "1" EventSeverity : severidad fija
+
+note top of Config
+  {invariante} a lo sumo una Config
+  con active = true (config vigente)
+end note
+
+legend right
+  |= Notacion |= Significado |
+  | --> | asociacion / uso |
+  | ..> | dependencia (derivacion logica, sin FK) |
+  | «documento» | se persiste en MongoDB |
+  | «DTO» | se calcula por request (no se persiste) |
+endlegend
 @enduml

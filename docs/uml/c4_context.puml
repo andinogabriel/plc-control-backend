@@ -3,6 +3,12 @@
 !include <C4/C4_Context>
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
+UpdateElementStyle("person", $bgColor="#FFFFFF", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("system", $bgColor="#EEEEEE", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("external_system", $bgColor="#DDDDDD", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("container", $bgColor="#EEEEEE", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("container_db", $bgColor="#EEEEEE", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("component", $bgColor="#FFFFFF", $fontColor="#000000", $borderColor="#000000")
 
 title Diagrama de contexto (C4) — Sistema de Control PLC
 

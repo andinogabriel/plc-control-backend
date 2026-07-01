@@ -1,0 +1,43 @@
+@startuml c4_component
+' Vista de arquitectura C4 - nivel 3 (componentes del backend).
+!include <C4/C4_Component>
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+UpdateElementStyle("person", $bgColor="#FFFFFF", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("system", $bgColor="#EEEEEE", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("external_system", $bgColor="#DDDDDD", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("container", $bgColor="#EEEEEE", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("container_db", $bgColor="#EEEEEE", $fontColor="#000000", $borderColor="#000000")
+UpdateElementStyle("component", $bgColor="#FFFFFF", $fontColor="#000000", $borderColor="#000000")
+
+title Diagrama de componentes (C4) — Backend API
+
+Container(spa, "Panel web (SPA)", "React")
+System_Ext(rpi, "Raspberry / Gateway", "Publica mediciones, lee la config")
+
+Container_Boundary(api, "Backend API (Spring Boot)") {
+  Component(cc, "ConfigController", "REST", "POST / GET de configuracion")
+  Component(mc, "MeasurementController", "REST + SSE", "mediciones, latest, status, stream")
+  Component(ec, "EventController", "REST", "eventos y ACK")
+  Component(cs, "ConfigService", "Service", "valida, desactiva la anterior, persiste (auditoria)")
+  Component(ms, "MeasurementService", "Service", "persiste, publica SSE, estado del sensor")
+  Component(es, "EventService", "Service", "deriva eventos, ACK, conteo")
+  Component(ss, "MeasurementStreamService", "Service", "gestiona las conexiones SSE")
+  Component(repo, "Repositorios", "Spring Data Mongo", "configs, measurements, event_acks")
+}
+ContainerDb(db, "MongoDB", "Atlas M0", "colecciones")
+
+Rel(spa, cc, "POST/GET config", "HTTPS")
+Rel(spa, mc, "mediciones / SSE", "HTTPS")
+Rel(spa, ec, "eventos / ACK", "HTTPS")
+Rel(rpi, cc, "GET config activa", "HTTPS")
+Rel(rpi, mc, "POST mediciones", "HTTPS")
+Rel(cc, cs, "usa")
+Rel(mc, ms, "usa")
+Rel(mc, ss, "usa")
+Rel(ec, es, "usa")
+Rel(cs, repo, "lee / escribe")
+Rel(ms, repo, "lee / escribe")
+Rel(es, repo, "lee")
+Rel(repo, db, "Spring Data", "mongodb+srv")
+@enduml

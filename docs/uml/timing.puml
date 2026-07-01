@@ -1,0 +1,28 @@
+@startuml timing
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de tiempos (UML) — respuesta del control on/off con histeresis (banda muerta).
+title Respuesta del control con histeresis
+
+robust "Temperatura" as T
+binary "Cooler (relay)" as C
+
+@0
+T is "< tempMax"
+C is low
+@2
+T is "sube -> tempMax"
+@3
+T is ">= tempMax"
+C is high
+@5
+T is "baja (> tempMax - hist)"
+@7
+T is "<= tempMax - hist"
+C is low
+@9
+T is "< tempMax"
+
+highlight 3 to 7 #Silver;line:Black : cooler ON (banda muerta)
+@enduml

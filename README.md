@@ -63,8 +63,9 @@ comportamiento):
 | --- | --- | --- |
 | **Casos de uso** | Comportamiento | [Casos de uso](#casos-de-uso) |
 | **Secuencia** | Comportamiento (interacción) | [Diagrama de secuencia](#qué-hace-el-sistema-diagrama-de-secuencia) |
-| **Actividad** | Comportamiento (flujo) | [Lógica de control](#lógica-de-control) |
+| **Actividad** | Comportamiento (flujo: ciclo de control + end-to-end con swimlanes) | [Lógica de control](#lógica-de-control) · [Flujo principal](#flujo-principal-del-sistema) |
 | **Máquina de estados** | Comportamiento (×4: ciclo, sensor, relay, OpenPLC) | [Máquina de estados](#máquina-de-estados) |
+| **Tiempos** | Comportamiento (respuesta temporal del control) | [Lógica de control](#lógica-de-control) |
 | **Clases** | Estructural | [Modelo de datos (UML)](#modelo-de-datos-uml) |
 | **Objetos** | Estructural (instancias) | [Modelo de datos (UML)](#modelo-de-datos-uml) |
 | **Componentes** | Estructural | [Arquitectura por capas (UML)](#arquitectura-por-capas-uml) |
@@ -126,6 +127,10 @@ primeros niveles: **contexto** (nivel 1) y **contenedores** (nivel 2).
 (gateway + OpenPLC) y el hardware.
 
 [![Diagrama de contenedores C4](docs/uml/c4_container.svg)](docs/uml/c4_container.puml)
+
+**Nivel 3 — Componentes:** *zoom* dentro del backend (controllers → services → repositorios → base).
+
+[![Diagrama de componentes C4](docs/uml/c4_component.svg)](docs/uml/c4_component.puml)
 
 ## Responsabilidad de cada componente
 
@@ -201,6 +206,11 @@ Frecuencia:     cada measurementIntervalSeconds (configurable, por defecto 30 s)
 10. Python publica la medición en Spring Boot mediante POST /api/measurements.
 11. React consulta dashboard e historial desde el backend.
 ```
+
+El mismo flujo como **diagrama de actividad con particiones (swimlanes)** — Operador → Frontend →
+Backend → Raspberry/OpenPLC:
+
+[![Diagrama de actividad — flujo operativo end-to-end](docs/uml/activity_workflow.svg)](docs/uml/activity_workflow.puml)
 
 ## Qué hace el sistema (diagrama de secuencia)
 
@@ -288,6 +298,11 @@ Dentro de la zona muerta el actuador **conserva** el estado: si venía encendido
 hasta cruzar el límite inferior, y si venía apagado sigue apagado hasta cruzar `tempMax`. Eso es lo
 que evita el *chattering* (encendido/apagado rápido del relay) cuando la medición oscila alrededor
 del umbral.
+
+La misma respuesta como **diagrama de tiempos (UML)**: el cooler enciende al llegar a `tempMax`,
+se mantiene durante toda la banda muerta y recién apaga al bajar de `tempMax - hist`:
+
+[![Diagrama de tiempos — control con histéresis](docs/uml/timing.svg)](docs/uml/timing.puml)
 
 > **Histéresis de un solo lado (enfriamiento).** La zona muerta se aplica sobre el **máximo**
 > (`tempMax`/`humMax`), porque el único actuador es el cooler. Los mínimos (`temperatureMin`/

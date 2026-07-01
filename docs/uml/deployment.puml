@@ -34,4 +34,11 @@ GW --> JAR : HTTPS · REST (config / mediciones)
 GW <--> PLC : Modbus TCP
 GW --> DHT : GPIO (lee temp/humedad)
 PLC --> RLY : GPIO (acciona)
+
+legend right
+  |= Estereotipo |= Significado |
+  | «device» | nodo fisico (hardware) |
+  | «executionEnvironment» | entorno de ejecucion gestionado |
+  | «artifact» | artefacto desplegado en un nodo |
+endlegend
 @enduml
