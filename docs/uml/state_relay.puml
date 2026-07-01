@@ -1,5 +1,5 @@
 @startuml state_relay
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de maquina de estados (UML) — relay / cooler con histeresis.

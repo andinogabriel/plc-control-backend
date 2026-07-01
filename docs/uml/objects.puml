@@ -1,5 +1,5 @@
 @startuml objects
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de objetos (UML) — snapshot de instancias que ejemplifica el modelo de datos.

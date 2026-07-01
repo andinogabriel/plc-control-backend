@@ -1,5 +1,5 @@
 @startuml sequence
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de secuencia (UML) — configuracion, bucle de control y monitoreo.

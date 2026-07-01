@@ -1,5 +1,5 @@
 @startuml state_sensor
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de maquina de estados (UML) — sensor DHT.

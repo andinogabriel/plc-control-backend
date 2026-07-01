@@ -1,5 +1,5 @@
 @startuml components
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de componentes (UML) — arquitectura por capas con una sola direccion de dependencias.

@@ -1,5 +1,5 @@
 @startuml use_cases
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de casos de uso (UML) — notacion nativa: actores + frontera del sistema + asociaciones.
