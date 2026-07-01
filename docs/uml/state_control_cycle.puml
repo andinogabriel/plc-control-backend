@@ -1,0 +1,21 @@
+@startuml state_control_cycle
+' Diagrama de maquina de estados (UML) — ciclo de control en la Raspberry / Gateway.
+title Ciclo de control (Raspberry / Gateway)
+
+[*] --> Inicializando
+Inicializando --> ObteniendoConfig : arranque
+ObteniendoConfig --> LeyendoSensor : config activa obtenida
+ObteniendoConfig --> ErrorConfig : sin conexion / sin config activa
+LeyendoSensor --> Evaluando : lectura valida
+LeyendoSensor --> ErrorSensor : fallo de lectura DHT
+Evaluando --> Enfriando : supera umbral (relay ON)
+Evaluando --> Reposo : dentro de rango (relay OFF)
+Evaluando --> Enfriando : banda muerta y venia enfriando
+Evaluando --> Reposo : banda muerta y venia en reposo
+Enfriando --> Publicando
+Reposo --> Publicando
+ErrorSensor --> Publicando : status CRITICAL / SENSOR_ERROR
+Publicando --> Esperando : POST /api/measurements
+ErrorConfig --> Esperando : reintento
+Esperando --> ObteniendoConfig : paso measurementIntervalSeconds
+@enduml

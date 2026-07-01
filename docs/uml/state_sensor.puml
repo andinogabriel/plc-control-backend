@@ -1,0 +1,10 @@
+@startuml state_sensor
+' Diagrama de maquina de estados (UML) — sensor DHT.
+title Sensor DHT
+
+[*] --> LecturaOK
+LecturaOK --> LecturaOK : lectura valida
+LecturaOK --> Error : timeout / CRC invalido
+Error --> LecturaOK : lectura valida
+Error --> Error : sigue fallando (SENSOR_ERROR)
+@enduml
