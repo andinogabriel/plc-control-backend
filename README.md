@@ -7,6 +7,7 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 ## Contenido
 
 - [Qué es y para qué sirve](#qué-es-y-para-qué-sirve)
+- [Diagramas UML incluidos](#diagramas-uml-incluidos)
 - [Arquitectura general](#arquitectura-general)
 - [Responsabilidad de cada componente](#responsabilidad-de-cada-componente)
 - [Casos de uso](#casos-de-uso)
@@ -21,6 +22,7 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Eventos y alarmas (derivados)](#eventos-y-alarmas-derivados)
 - [Modelo de datos (UML)](#modelo-de-datos-uml)
 - [Arquitectura por capas (UML)](#arquitectura-por-capas-uml)
+- [Diagrama de despliegue (UML)](#diagrama-de-despliegue-uml)
 - [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
 - [Tiempo real (SSE)](#tiempo-real-sse)
 - [Ejecutar con Docker](#ejecutar-con-docker)
@@ -47,6 +49,31 @@ El sistema completo utiliza:
 * Spring Boot como API REST.
 * MongoDB como base de datos.
 * React como frontend de monitoreo y configuración.
+
+## Diagramas UML incluidos
+
+Este README documenta el sistema con los diagramas de **UML 2.x** que aplican a un sistema de
+control con adquisición, persistencia y una interfaz web. Cobertura por vista (estructural y de
+comportamiento):
+
+| Diagrama UML | Vista | Sección |
+| --- | --- | --- |
+| **Casos de uso** | Comportamiento | [Casos de uso](#casos-de-uso) |
+| **Secuencia** | Comportamiento (interacción) | [Diagrama de secuencia](#qué-hace-el-sistema-diagrama-de-secuencia) |
+| **Actividad** | Comportamiento (flujo) | [Lógica de control](#lógica-de-control) |
+| **Máquina de estados** | Comportamiento (×4: ciclo, sensor, relay, OpenPLC) | [Máquina de estados](#máquina-de-estados) |
+| **Clases** | Estructural | [Modelo de datos (UML)](#modelo-de-datos-uml) |
+| **Componentes / paquetes** | Estructural | [Arquitectura por capas (UML)](#arquitectura-por-capas-uml) |
+| **Despliegue** | Estructural (topología física) | [Diagrama de despliegue (UML)](#diagrama-de-despliegue-uml) |
+
+> **Nota sobre la notación.** Los diagramas se escriben en Mermaid para que GitHub los renderice.
+> Mermaid tiene notación **nativa** para *clases*, *secuencia* y *máquina de estados* (los tres se
+> usan tal cual). Para *casos de uso*, *actividad*, *componentes* y *despliegue* Mermaid no tiene un
+> tipo dedicado, así que se representan con la **aproximación estándar**: actores + frontera del
+> sistema (subgraph) en casos de uso; nodos con estereotipos UML (`«device»`, `«executionEnvironment»`,
+> `«artifact»`) y rutas de comunicación etiquetadas con el protocolo en el de despliegue. El
+> *diagrama de arquitectura general* es un diagrama de contexto (no UML), incluido para dar el
+> panorama antes de las vistas formales.
 
 ## Arquitectura general
 
@@ -105,6 +132,7 @@ flowchart LR
         UC6[Obtener configuración activa]
         UC7[Consultar eventos y alarmas]
         UC8[Reconocer alarma -ACK-]
+        UC9[Consultar estado del sensor -online/offline-]
     end
 
     Admin --> UC1
@@ -113,6 +141,7 @@ flowchart LR
     Admin --> UC4
     Admin --> UC7
     Admin --> UC8
+    Admin --> UC9
     RPi --> UC5
     RPi --> UC6
 ```
@@ -127,6 +156,7 @@ flowchart LR
 | Publicar medición                      | Raspberry     | Envía la lectura del sensor y el estado calculado del cooler                | `POST /api/measurements`  |
 | Consultar eventos y alarmas            | Administrador | Lista paginada de eventos derivados (transiciones de estado y del cooler)   | `GET /api/events`         |
 | Reconocer alarma (ACK)                 | Administrador | Marca alarmas como reconocidas (una o todas); conteo global sin reconocer   | `POST /api/events/{id}/ack`, `POST /api/events/ack-all` |
+| Consultar estado del sensor            | Administrador | Indica si la Raspberry sigue publicando (online/offline) y la antigüedad del dato | `GET /api/measurements/status`  |
 
 ### Detalle: configurar umbrales (Administrador)
 
@@ -656,6 +686,48 @@ flowchart TD
     ES -.->|deriva de| MR
     ES --> AR
 ```
+
+## Diagrama de despliegue (UML)
+
+Topología física de la solución desplegada: los **nodos** (`«device»` / `«executionEnvironment»`)
+alojan **artefactos** (`«artifact»`), y las aristas son **rutas de comunicación** etiquetadas con su
+protocolo. Refleja el despliegue real documentado en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+(Cloudflare Pages + Railway + MongoDB Atlas + la Raspberry con OpenPLC).
+
+```mermaid
+flowchart TB
+    subgraph browser["«device» PC del operador"]
+        SPA["«artifact» SPA React<br/>(corriendo en el navegador)"]
+    end
+    subgraph cf["«executionEnvironment» Cloudflare Pages · CDN"]
+        DIST["«artifact» dist/ (HTML/JS/CSS)"]
+    end
+    subgraph railway["«executionEnvironment» Railway · contenedor Docker"]
+        JAR["«artifact» control-system-backend.jar<br/>Spring Boot · JRE 25"]
+    end
+    subgraph atlas["«executionEnvironment» MongoDB Atlas · M0"]
+        DB[("«artifact» base controlsystem")]
+    end
+    subgraph rpi["«device» Raspberry Pi 3B+ · Raspberry Pi OS 32-bit"]
+        GW["«artifact» gateway.py (Python)"]
+        PLC["«artifact» OpenPLC_v3 (runtime de control)"]
+    end
+    DHT["«device» Sensor DHT22"]
+    RLY["«device» Relay + Cooler"]
+
+    browser -->|"HTTPS · descarga la SPA"| cf
+    SPA -->|"HTTPS · REST + SSE"| JAR
+    JAR -->|"mongodb+srv · TLS"| DB
+    GW -->|"HTTPS · REST (config / mediciones)"| JAR
+    GW <-->|"Modbus TCP"| PLC
+    GW -->|"GPIO · lee temp/humedad"| DHT
+    PLC -->|"GPIO · acciona"| RLY
+```
+
+> La **ley de control vive en OpenPLC** (el controlador): el `gateway.py` es un puente de I/O y de
+> red (lee el DHT22 —que necesita timing que el PLC no hace—, intercambia setpoints y salidas con
+> OpenPLC por Modbus, y sincroniza con el backend). El backend y la base son gestionados y no
+> requieren infraestructura propia encendida.
 
 ## Seguridad y anti-abuso
 
