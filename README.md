@@ -25,6 +25,7 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Arquitectura por capas (UML)](#arquitectura-por-capas-uml)
 - [Diagrama de paquetes (UML)](#diagrama-de-paquetes-uml)
 - [Diagrama de despliegue (UML)](#diagrama-de-despliegue-uml)
+- [Decisiones de arquitectura (ADR)](#decisiones-de-arquitectura-adr)
 - [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
 - [Tiempo real (SSE)](#tiempo-real-sse)
 - [Ejecutar con Docker](#ejecutar-con-docker)
@@ -503,6 +504,20 @@ protocolo. Refleja el despliegue real documentado en [`docs/DEPLOYMENT.md`](docs
 > red (lee el DHT22 —que necesita timing que el PLC no hace—, intercambia setpoints y salidas con
 > OpenPLC por Modbus, y sincroniza con el backend). El backend y la base son gestionados y no
 > requieren infraestructura propia encendida.
+
+## Decisiones de arquitectura (ADR)
+
+Las decisiones de arquitectura significativas están registradas como **ADR** (Architecture Decision
+Records) en [`docs/adr/`](docs/adr) — la práctica actual para documentar el *por qué* de las
+decisiones de forma liviana y versionada junto al código:
+
+| ADR | Decisión |
+| --- | --- |
+| [0001](docs/adr/0001-mongodb-document-store.md) | MongoDB como almacén de documentos |
+| [0002](docs/adr/0002-derived-events.md) | Eventos/alarmas derivados (no una colección propia) |
+| [0003](docs/adr/0003-control-law-in-openplc.md) | La ley de control vive en OpenPLC |
+| [0004](docs/adr/0004-managed-deployment.md) | Despliegue gestionado (Atlas + Railway + Cloudflare Pages) |
+| [0005](docs/adr/0005-sensor-offline-by-age.md) | Sensor offline inferido por antigüedad del dato |
 
 ## Seguridad y anti-abuso
 

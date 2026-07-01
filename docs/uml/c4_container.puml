@@ -1,6 +1,8 @@
 @startuml c4_container
 ' Vista de arquitectura C4 - nivel 2 (contenedores). Complementa a UML (no lo reemplaza).
 !include <C4/C4_Container>
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
 
 title Diagrama de contenedores (C4) — Sistema de Control PLC
 
