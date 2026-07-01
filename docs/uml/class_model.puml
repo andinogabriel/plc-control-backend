@@ -1,11 +1,11 @@
 @startuml class_model
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de clases (UML) — modelo de datos: documentos persistidos, DTO derivado y enums.
 title Modelo de datos
 
-class Config <<documento configs>> #E3F2FD {
+class Config <<documento configs>> {
   +id : String
   +temperatureMin : double
   +temperatureMax : double
@@ -23,7 +23,7 @@ class Config <<documento configs>> #E3F2FD {
   +createdAt : Instant
 }
 
-class Measurement <<documento measurements>> #E3F2FD {
+class Measurement <<documento measurements>> {
   +id : String
   +temperature : double
   +humidity : double
@@ -33,12 +33,12 @@ class Measurement <<documento measurements>> #E3F2FD {
   +createdAt : Instant
 }
 
-class EventAck <<documento event_acks>> #E3F2FD {
+class EventAck <<documento event_acks>> {
   +id : String
   +ackedAt : Instant
 }
 
-class EventResponse <<DTO no se persiste>> #FFF3E0 {
+class EventResponse <<DTO no se persiste>> {
   +id : String
   +time : Instant
   +severity : EventSeverity

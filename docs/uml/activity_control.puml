@@ -1,5 +1,5 @@
 @startuml activity_control
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de actividad (UML) — ciclo de control con histeresis que corre en el controlador.

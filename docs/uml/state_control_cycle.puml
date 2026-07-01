@@ -1,5 +1,5 @@
 @startuml state_control_cycle
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de maquina de estados (UML) — ciclo de control en la Raspberry / Gateway.

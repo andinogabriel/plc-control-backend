@@ -1,5 +1,5 @@
 @startuml packages
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de paquetes (UML) — organizacion del codigo y dependencias permitidas (una sola direccion).

@@ -72,12 +72,17 @@ comportamiento):
 | **Despliegue** | Estructural (topología física) | [Diagrama de despliegue (UML)](#diagrama-de-despliegue-uml) |
 
 > **Notación.** Todos los diagramas UML están hechos en **PlantUML** con notación formal (actores y
-> óvalos en casos de uso, nodos 3D y artefactos en despliegue, estereotipos, etc.) y se muestran
-> renderizados a **SVG**. El fuente editable de cada uno está en [`docs/uml/`](docs/uml) (`.puml`,
-> exportable/renderizable desde cualquier herramienta PlantUML: VS Code, IntelliJ, plantuml.com).
+> óvalos en casos de uso, nodos 3D y artefactos en despliegue, estereotipos, etc.). Usan un estilo
+> **neutro (blanco y negro)** para que se lean bien también **impresos en escala de grises**.
 > Solo el *diagrama de arquitectura general* (contexto, no UML) y el *flujo de derivación de eventos*
 > se mantienen en Mermaid por ser informales. Como complemento moderno a UML se incluye además una
 > [vista de arquitectura **C4**](#vista-de-arquitectura-c4-contenedores) (nivel contenedores).
+>
+> **Formatos y descarga.** Cada diagrama vive en [`docs/uml/`](docs/uml) en tres formatos, todos
+> descargables desde el repo: **`.puml`** (fuente editable, exportable desde cualquier herramienta
+> PlantUML — VS Code, IntelliJ, plantuml.com), **`.svg`** (el que se muestra en este README) y
+> **`.png`** (listo para **pegar en un documento** e imprimir). Un clic en cualquier diagrama abre
+> su `.puml`.
 
 ## Arquitectura general
 

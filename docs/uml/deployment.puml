@@ -1,5 +1,5 @@
 @startuml deployment
-!theme cerulean-outline
+!theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de despliegue (UML) — nodos (device / executionEnvironment), artefactos y rutas de comunicacion.
