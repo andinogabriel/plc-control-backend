@@ -1,0 +1,39 @@
+@startuml activity_workflow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de actividad con particiones (swimlanes) — flujo operativo end-to-end.
+title Flujo operativo end-to-end
+
+|Operador|
+start
+:Define umbrales, histeresis e intervalo;
+
+|Frontend (SPA)|
+:Valida (Zod) y envia POST /api/config;
+
+|Backend (Spring Boot)|
+:Valida, desactiva la config anterior y persiste (con auditoria);
+:Responde 201 Created;
+
+|Raspberry / OpenPLC|
+repeat
+  :GET /api/config/latest;
+  :Lee el sensor DHT22 (temp, humedad);
+  :OpenPLC evalua la histeresis;
+  if (supera umbral?) then (si)
+    :Cooler ON (relay);
+  else (no)
+    :Cooler OFF / mantiene (zona muerta);
+  endif
+  :POST /api/measurements;
+repeat while (espera measurementIntervalSeconds) is (siguiente ciclo)
+->fin del bucle;
+
+|Backend (Spring Boot)|
+:Persiste la medicion (historial);
+
+|Operador|
+:Monitorea tablero / historial / alarmas;
+stop
+@enduml
