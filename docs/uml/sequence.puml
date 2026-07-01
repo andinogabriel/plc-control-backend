@@ -1,41 +1,7 @@
 @startuml sequence
-' --- estilo moderno 2026 (flat, redondeado, paleta del proyecto; fondo claro para legibilidad en GitHub) ---
+!theme cerulean-outline
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam roundCorner 12
-skinparam DefaultFontColor #0F172A
-skinparam DefaultFontSize 13
-skinparam ArrowColor #64748B
-skinparam ArrowFontColor #475569
-skinparam ArrowThickness 1.1
-skinparam classBackgroundColor #F8FAFC
-skinparam classBorderColor #0891B2
-skinparam classBorderThickness 1.1
-skinparam classAttributeFontColor #334155
-skinparam stateBackgroundColor #F8FAFC
-skinparam stateBorderColor #0891B2
-skinparam usecaseBackgroundColor #ECFEFF
-skinparam usecaseBorderColor #0891B2
-skinparam actorBackgroundColor #FFEDD5
-skinparam actorBorderColor #C2410C
-skinparam packageBackgroundColor #F1F5F9
-skinparam packageBorderColor #94A3B8
-skinparam componentBackgroundColor #F8FAFC
-skinparam componentBorderColor #0891B2
-skinparam nodeBackgroundColor #F8FAFC
-skinparam nodeBorderColor #475569
-skinparam participantBackgroundColor #F1F5F9
-skinparam participantBorderColor #94A3B8
-skinparam sequenceLifeLineBorderColor #CBD5E1
-skinparam sequenceGroupBackgroundColor #F1F5F9
-skinparam noteBackgroundColor #FEF9C3
-skinparam noteBorderColor #CA8A04
-skinparam activityBackgroundColor #F8FAFC
-skinparam activityBorderColor #0891B2
-skinparam activityDiamondBackgroundColor #FFEDD5
-skinparam activityDiamondBorderColor #C2410C
-skinparam objectBackgroundColor #F8FAFC
-skinparam objectBorderColor #0891B2
 ' Diagrama de secuencia (UML) — configuracion, bucle de control y monitoreo.
 title Que hace el sistema
 
