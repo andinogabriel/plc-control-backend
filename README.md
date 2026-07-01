@@ -9,6 +9,7 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Qué es y para qué sirve](#qué-es-y-para-qué-sirve)
 - [Diagramas UML incluidos](#diagramas-uml-incluidos)
 - [Arquitectura general](#arquitectura-general)
+- [Vista de arquitectura C4 (contenedores)](#vista-de-arquitectura-c4-contenedores)
 - [Responsabilidad de cada componente](#responsabilidad-de-cada-componente)
 - [Casos de uso](#casos-de-uso)
 - [Flujo principal del sistema](#flujo-principal-del-sistema)
@@ -74,7 +75,8 @@ comportamiento):
 > renderizados a **SVG**. El fuente editable de cada uno está en [`docs/uml/`](docs/uml) (`.puml`,
 > exportable/renderizable desde cualquier herramienta PlantUML: VS Code, IntelliJ, plantuml.com).
 > Solo el *diagrama de arquitectura general* (contexto, no UML) y el *flujo de derivación de eventos*
-> se mantienen en Mermaid por ser informales.
+> se mantienen en Mermaid por ser informales. Como complemento moderno a UML se incluye además una
+> [vista de arquitectura **C4**](#vista-de-arquitectura-c4-contenedores) (nivel contenedores).
 
 ## Arquitectura general
 
@@ -103,6 +105,15 @@ flowchart TD
 > cooler, y **(3)** publica `POST /api/measurements` con la temperatura, la humedad y si el
 > cooler quedó encendido. Así el historial se arma a ese ritmo y los cambios de umbral se
 > aplican en el siguiente ciclo.
+
+## Vista de arquitectura C4 (contenedores)
+
+Además de las vistas UML, se incluye un **diagrama de contenedores del modelo C4** (Simon Brown),
+que es la práctica actual para documentar arquitectura de software y **complementa** a UML (no lo
+reemplaza). Muestra los contenedores desplegables (SPA, backend, base) y su relación con la planta
+(gateway + OpenPLC) y el hardware.
+
+[![Diagrama de contenedores C4](docs/uml/c4_container.svg)](docs/uml/c4_container.puml)
 
 ## Responsabilidad de cada componente
 
