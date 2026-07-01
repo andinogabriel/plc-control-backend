@@ -109,9 +109,15 @@ flowchart TD
 
 ## Vista de arquitectura C4 (contenedores)
 
-Además de las vistas UML, se incluye un **diagrama de contenedores del modelo C4** (Simon Brown),
-que es la práctica actual para documentar arquitectura de software y **complementa** a UML (no lo
-reemplaza). Muestra los contenedores desplegables (SPA, backend, base) y su relación con la planta
+Además de las vistas UML, se incluye el **modelo C4** (Simon Brown), la práctica actual para
+documentar arquitectura de software, que **complementa** a UML (no lo reemplaza). Se muestran los dos
+primeros niveles: **contexto** (nivel 1) y **contenedores** (nivel 2).
+
+**Nivel 1 — Contexto:** el sistema, el actor y lo que controla.
+
+[![Diagrama de contexto C4](docs/uml/c4_context.svg)](docs/uml/c4_context.puml)
+
+**Nivel 2 — Contenedores:** las piezas desplegables (SPA, backend, base) y su relación con la planta
 (gateway + OpenPLC) y el hardware.
 
 [![Diagrama de contenedores C4](docs/uml/c4_container.svg)](docs/uml/c4_container.puml)

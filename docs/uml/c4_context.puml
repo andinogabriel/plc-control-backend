@@ -1,0 +1,16 @@
+@startuml c4_context
+' Vista de arquitectura C4 - nivel 1 (contexto del sistema).
+!include <C4/C4_Context>
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+
+title Diagrama de contexto (C4) — Sistema de Control PLC
+
+Person(admin, "Administrador", "Configura umbrales y monitorea el clima")
+System(sys, "Sistema de Control PLC", "Monitorea temperatura/humedad, aplica el control con histeresis y registra el historico")
+System_Ext(hw, "Sensores y actuadores", "DHT22, relay y cooler (via Raspberry Pi + OpenPLC)")
+
+Rel(admin, sys, "Configura y monitorea", "HTTPS")
+Rel(sys, hw, "Lee el sensor y acciona el cooler", "Raspberry + Modbus/GPIO")
+Rel(hw, sys, "Publica mediciones", "HTTPS · REST")
+@enduml
