@@ -1,0 +1,32 @@
+@startuml c4_container
+' Vista de arquitectura C4 - nivel 2 (contenedores). Complementa a UML (no lo reemplaza).
+!include <C4/C4_Container>
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+
+title Diagrama de contenedores (C4) — Sistema de Control PLC
+
+Person(admin, "Administrador", "Configura umbrales y monitorea el sistema")
+
+System_Boundary(cloud, "Sistema de Control PLC (nube)") {
+  Container(spa, "Panel web (SPA)", "React / Vite · Cloudflare Pages", "Configuracion, tablero, historial, eventos/alarmas")
+  Container(api, "Backend API", "Spring Boot · Railway", "REST + SSE, validacion, persistencia, eventos derivados")
+  ContainerDb(db, "Base de datos", "MongoDB Atlas M0", "configs, measurements, event_acks")
+}
+
+System_Boundary(plant, "Planta (Raspberry Pi)") {
+  Container(gw, "Gateway", "Python", "Lee el DHT22, puentea Modbus y publica mediciones")
+  Container(plc, "OpenPLC", "OpenPLC_v3", "Ley de control (histeresis) - el controlador")
+}
+
+System_Ext(dht, "Sensor DHT22", "Temperatura + humedad")
+System_Ext(cooler, "Relay + Cooler", "Actuador de ventilacion")
+
+Rel(admin, spa, "Configura y monitorea", "HTTPS")
+Rel(spa, api, "Consume", "HTTPS · REST + SSE")
+Rel(api, db, "Lee / escribe", "mongodb+srv · TLS")
+Rel(gw, api, "GET config / POST mediciones", "HTTPS · REST")
+Rel(gw, plc, "Setpoints y salidas", "Modbus TCP")
+Rel(gw, dht, "Lee", "GPIO")
+Rel(plc, cooler, "Acciona", "GPIO")
+@enduml

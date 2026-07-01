@@ -1,0 +1,32 @@
+@startuml objects
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de objetos (UML) — snapshot de instancias que ejemplifica el modelo de datos.
+title Snapshot de instancias (ejemplo)
+
+object "config : Config" as cfg {
+  id = "665f...a1"
+  temperatureMax = 26.0
+  humidityMax = 60.0
+  hysteresisTemperature = 1.0
+  measurementIntervalSeconds = 3
+  active = true
+}
+
+object "m : Measurement" as m {
+  id = "6a42...9a"
+  temperature = 24.5
+  humidity = 50.0
+  coolerOn = false
+  status = NORMAL
+}
+
+object "ack : EventAck" as ack {
+  id = "6a42...9a-s"
+  ackedAt = 2026-06-29T19:40Z
+}
+
+cfg ..> m : parametriza\n(config activa vigente)
+ack ..> m : reconoce el evento\nderivado de esta medicion
+@enduml

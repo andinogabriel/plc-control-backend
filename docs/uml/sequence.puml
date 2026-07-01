@@ -1,0 +1,41 @@
+@startuml sequence
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de secuencia (UML) — configuracion, bucle de control y monitoreo.
+title Que hace el sistema
+
+actor "Usuario (admin)" as U
+participant "Frontend React" as FE
+participant "Backend\nSpring Boot" as API
+database "MongoDB" as DB
+participant "Raspberry\n(Python + DHT)" as RPi
+participant "Relay + Cooler" as HW
+
+== 1) Configuracion de umbrales (con auditoria) ==
+U -> FE : Define tempMin/Max, humMin/Max, histeresis, intervalo
+FE -> API : POST /api/config
+API -> DB : Guarda config activa (quien, email, cuando, IP)
+API --> FE : 201 Created
+
+== 2) Bucle de control en la Raspberry ==
+loop cada measurementIntervalSeconds
+  RPi -> API : GET /api/config/latest
+  API --> RPi : Umbrales + histeresis + intervalo
+  RPi -> RPi : Lee sensor DHT (temperatura, humedad)
+  alt supera umbral (aplicando histeresis)
+    RPi -> HW : Enciende cooler (relay ON)
+  else dentro de rango
+    RPi -> HW : Apaga cooler (relay OFF)
+  end
+  RPi -> API : POST /api/measurements (temp, hum, coolerOn, status)
+  API -> DB : Persiste la medicion (historial)
+end
+
+== 3) Monitoreo y auditoria ==
+U -> FE : Abre dashboard / historial
+FE -> API : GET /api/measurements, /api/config/history
+API -> DB : Consulta
+API --> FE : Datos
+FE --> U : Estado actual, graficos e historial
+@enduml

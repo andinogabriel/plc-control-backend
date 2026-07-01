@@ -1,0 +1,46 @@
+@startuml components
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de componentes (UML) — arquitectura por capas con una sola direccion de dependencias.
+skinparam componentStyle uml2
+left to right direction
+
+package "web" {
+  [ConfigController] as CC
+  [MeasurementController] as MC
+  [EventController] as EC
+}
+package "service" {
+  [ConfigService] as CS
+  [MeasurementService] as MS
+  [EventService] as ES
+  [MeasurementStreamService] as SS
+}
+package "repository\n(Spring Data Mongo)" {
+  [ConfigRepository] as CR
+  [MeasurementRepository] as MR
+  [EventAckRepository] as AR
+}
+package "domain\n(entities + enums)" {
+  [Config] as Cf
+  [Measurement] as Me
+  [EventAck] as Ea
+}
+database "MongoDB" as DB
+
+CC --> CS
+MC --> MS
+MC --> SS
+EC --> ES
+CS --> CR
+MS --> MR
+ES --> MR
+ES --> AR
+CR --> DB
+MR --> DB
+AR --> DB
+CS ..> Cf
+MS ..> Me
+ES ..> Ea
+@enduml

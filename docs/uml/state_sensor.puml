@@ -1,0 +1,13 @@
+@startuml state_sensor
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de maquina de estados (UML) — sensor DHT.
+title Sensor DHT
+
+[*] --> LecturaOK
+LecturaOK --> LecturaOK : lectura valida
+LecturaOK --> Error : timeout / CRC invalido
+Error --> LecturaOK : lectura valida
+Error --> Error : sigue fallando (SENSOR_ERROR)
+@enduml

@@ -1,0 +1,24 @@
+@startuml packages
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de paquetes (UML) — organizacion del codigo y dependencias permitidas (una sola direccion).
+skinparam packageStyle rectangle
+left to right direction
+
+package "web\n(controllers + dto)" as web
+package "service" as service
+package "mapping\n(MapStruct)" as mapping
+package "repository\n(Spring Data Mongo)" as repository
+package "domain\n(entity + enums)" as domain
+package "infrastructure\n(config, ratelimit, web, i18n)" as infra
+
+web ..> service
+web ..> mapping
+web ..> infra
+service ..> repository
+service ..> domain
+service ..> infra
+mapping ..> domain
+repository ..> domain
+@enduml

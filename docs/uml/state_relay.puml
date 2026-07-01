@@ -1,0 +1,13 @@
+@startuml state_relay
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de maquina de estados (UML) — relay / cooler con histeresis.
+title Relay / Cooler
+
+[*] --> Apagado
+Apagado --> Encendido : temp >= tempMax o hum >= humMax
+Encendido --> Apagado : temp <= tempMax - histTemp y hum <= humMax - histHum
+Encendido --> Encendido : dentro de la banda muerta (histeresis)
+Apagado --> Apagado : dentro de la banda muerta (histeresis)
+@enduml

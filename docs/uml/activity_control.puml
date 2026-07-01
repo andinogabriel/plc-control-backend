@@ -1,0 +1,25 @@
+@startuml activity_control
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de actividad (UML) — ciclo de control con histeresis que corre en el controlador.
+title Ciclo de control con histeresis
+
+start
+:Leer temperatura y humedad (DHT22);
+:Obtener configuracion activa\n(GET /api/config/latest);
+
+if (Temp >= tempMax  o  Hum >= humMax ?) then (si)
+  :Encender cooler\n(relay ON);
+else (no)
+  if (Temp <= tempMax - histTemp\ny Hum <= humMax - histHum ?) then (si)
+    :Apagar cooler\n(relay OFF);
+  else (no)
+    :Mantener estado anterior\n(zona muerta / histeresis);
+  endif
+endif
+
+:Publicar medicion\n(POST /api/measurements);
+:Esperar measurementIntervalSeconds;
+stop
+@enduml

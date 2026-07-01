@@ -7,7 +7,9 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 ## Contenido
 
 - [Qué es y para qué sirve](#qué-es-y-para-qué-sirve)
+- [Diagramas UML incluidos](#diagramas-uml-incluidos)
 - [Arquitectura general](#arquitectura-general)
+- [Vista de arquitectura C4 (contenedores)](#vista-de-arquitectura-c4-contenedores)
 - [Responsabilidad de cada componente](#responsabilidad-de-cada-componente)
 - [Casos de uso](#casos-de-uso)
 - [Flujo principal del sistema](#flujo-principal-del-sistema)
@@ -21,6 +23,9 @@ Java 25 · Spring Boot 3.5 · Spring Data MongoDB · Gradle · arquitectura por 
 - [Eventos y alarmas (derivados)](#eventos-y-alarmas-derivados)
 - [Modelo de datos (UML)](#modelo-de-datos-uml)
 - [Arquitectura por capas (UML)](#arquitectura-por-capas-uml)
+- [Diagrama de paquetes (UML)](#diagrama-de-paquetes-uml)
+- [Diagrama de despliegue (UML)](#diagrama-de-despliegue-uml)
+- [Decisiones de arquitectura (ADR)](#decisiones-de-arquitectura-adr)
 - [Seguridad y anti-abuso](#seguridad-y-anti-abuso)
 - [Tiempo real (SSE)](#tiempo-real-sse)
 - [Ejecutar con Docker](#ejecutar-con-docker)
@@ -47,6 +52,32 @@ El sistema completo utiliza:
 * Spring Boot como API REST.
 * MongoDB como base de datos.
 * React como frontend de monitoreo y configuración.
+
+## Diagramas UML incluidos
+
+Este README documenta el sistema con los diagramas de **UML 2.x** que aplican a un sistema de
+control con adquisición, persistencia y una interfaz web. Cobertura por vista (estructural y de
+comportamiento):
+
+| Diagrama UML | Vista | Sección |
+| --- | --- | --- |
+| **Casos de uso** | Comportamiento | [Casos de uso](#casos-de-uso) |
+| **Secuencia** | Comportamiento (interacción) | [Diagrama de secuencia](#qué-hace-el-sistema-diagrama-de-secuencia) |
+| **Actividad** | Comportamiento (flujo) | [Lógica de control](#lógica-de-control) |
+| **Máquina de estados** | Comportamiento (×4: ciclo, sensor, relay, OpenPLC) | [Máquina de estados](#máquina-de-estados) |
+| **Clases** | Estructural | [Modelo de datos (UML)](#modelo-de-datos-uml) |
+| **Objetos** | Estructural (instancias) | [Modelo de datos (UML)](#modelo-de-datos-uml) |
+| **Componentes** | Estructural | [Arquitectura por capas (UML)](#arquitectura-por-capas-uml) |
+| **Paquetes** | Estructural | [Diagrama de paquetes (UML)](#diagrama-de-paquetes-uml) |
+| **Despliegue** | Estructural (topología física) | [Diagrama de despliegue (UML)](#diagrama-de-despliegue-uml) |
+
+> **Notación.** Todos los diagramas UML están hechos en **PlantUML** con notación formal (actores y
+> óvalos en casos de uso, nodos 3D y artefactos en despliegue, estereotipos, etc.) y se muestran
+> renderizados a **SVG**. El fuente editable de cada uno está en [`docs/uml/`](docs/uml) (`.puml`,
+> exportable/renderizable desde cualquier herramienta PlantUML: VS Code, IntelliJ, plantuml.com).
+> Solo el *diagrama de arquitectura general* (contexto, no UML) y el *flujo de derivación de eventos*
+> se mantienen en Mermaid por ser informales. Como complemento moderno a UML se incluye además una
+> [vista de arquitectura **C4**](#vista-de-arquitectura-c4-contenedores) (nivel contenedores).
 
 ## Arquitectura general
 
@@ -76,6 +107,21 @@ flowchart TD
 > cooler quedó encendido. Así el historial se arma a ese ritmo y los cambios de umbral se
 > aplican en el siguiente ciclo.
 
+## Vista de arquitectura C4 (contenedores)
+
+Además de las vistas UML, se incluye el **modelo C4** (Simon Brown), la práctica actual para
+documentar arquitectura de software, que **complementa** a UML (no lo reemplaza). Se muestran los dos
+primeros niveles: **contexto** (nivel 1) y **contenedores** (nivel 2).
+
+**Nivel 1 — Contexto:** el sistema, el actor y lo que controla.
+
+[![Diagrama de contexto C4](docs/uml/c4_context.svg)](docs/uml/c4_context.puml)
+
+**Nivel 2 — Contenedores:** las piezas desplegables (SPA, backend, base) y su relación con la planta
+(gateway + OpenPLC) y el hardware.
+
+[![Diagrama de contenedores C4](docs/uml/c4_container.svg)](docs/uml/c4_container.puml)
+
 ## Responsabilidad de cada componente
 
 | Componente          | Responsabilidad                                                                       |
@@ -91,31 +137,7 @@ flowchart TD
 
 ## Casos de uso
 
-```mermaid
-flowchart LR
-    Admin([Administrador])
-    RPi([Raspberry / Gateway])
-
-    subgraph Sistema
-        UC1[Configurar umbrales e intervalo]
-        UC2[Ver estado actual]
-        UC3[Consultar historial de mediciones]
-        UC4[Consultar historial de configuraciones]
-        UC5[Publicar medición]
-        UC6[Obtener configuración activa]
-        UC7[Consultar eventos y alarmas]
-        UC8[Reconocer alarma -ACK-]
-    end
-
-    Admin --> UC1
-    Admin --> UC2
-    Admin --> UC3
-    Admin --> UC4
-    Admin --> UC7
-    Admin --> UC8
-    RPi --> UC5
-    RPi --> UC6
-```
+[![Diagrama de casos de uso](docs/uml/use_cases.svg)](docs/uml/use_cases.puml)
 
 | Caso de uso                            | Actor         | Descripción                                                                 | Endpoint                  |
 | -------------------------------------- | ------------- | --------------------------------------------------------------------------- | ------------------------- |
@@ -127,6 +149,7 @@ flowchart LR
 | Publicar medición                      | Raspberry     | Envía la lectura del sensor y el estado calculado del cooler                | `POST /api/measurements`  |
 | Consultar eventos y alarmas            | Administrador | Lista paginada de eventos derivados (transiciones de estado y del cooler)   | `GET /api/events`         |
 | Reconocer alarma (ACK)                 | Administrador | Marca alarmas como reconocidas (una o todas); conteo global sin reconocer   | `POST /api/events/{id}/ack`, `POST /api/events/ack-all` |
+| Consultar estado del sensor            | Administrador | Indica si la Raspberry sigue publicando (online/offline) y la antigüedad del dato | `GET /api/measurements/status`  |
 
 ### Detalle: configurar umbrales (Administrador)
 
@@ -181,42 +204,7 @@ medición) desde la web, la Raspberry los aplica y, cada cierto intervalo config
 decide si prende el cooler y publica la medición; todo queda persistido para auditoría e
 historial.
 
-```mermaid
-sequenceDiagram
-    actor U as Usuario (admin)
-    participant FE as Frontend React
-    participant API as Backend Spring Boot
-    participant DB as MongoDB
-    participant RPi as Raspberry (Python + DHT)
-    participant HW as Relay + Cooler
-
-    Note over U,DB: 1) Configuración de umbrales (con auditoría)
-    U->>FE: Define tempMin/Max, humMin/Max, histéresis e intervalo
-    FE->>API: POST /api/config
-    API->>DB: Guarda config activa (quién, email, cuándo, IP)
-    API-->>FE: 201 Created
-
-    Note over RPi,HW: 2) Bucle de control en la Raspberry
-    loop cada measurementIntervalSeconds (ej. 30 s)
-        RPi->>API: GET /api/config/latest
-        API-->>RPi: Umbrales + histéresis + intervalo
-        RPi->>RPi: Lee sensor DHT (temperatura, humedad)
-        alt supera umbral (aplicando histéresis)
-            RPi->>HW: Enciende cooler (relay ON)
-        else dentro de rango
-            RPi->>HW: Apaga cooler (relay OFF)
-        end
-        RPi->>API: POST /api/measurements (temp, hum, coolerOn, status)
-        API->>DB: Persiste la medición (historial)
-    end
-
-    Note over U,DB: 3) Monitoreo y auditoría
-    U->>FE: Abre dashboard / historial
-    FE->>API: GET /api/measurements, /api/config/history
-    API->>DB: Consulta
-    API-->>FE: Datos
-    FE-->>U: Estado actual, gráficos e historial de cambios
-```
+[![Diagrama de secuencia](docs/uml/sequence.svg)](docs/uml/sequence.puml)
 
 ## Rol de OpenPLC
 
@@ -269,20 +257,7 @@ constantemente cerca del umbral. La **histéresis *es* la zona muerta (deadband)
 apagar— y **entre ambos no se cambia de estado** (se mantiene el anterior). Esa franja intermedia es
 la zona muerta, y su ancho es `hysteresisTemperature` (y `hysteresisHumidity` para la humedad).
 
-```mermaid
-flowchart TD
-    Read[Leer temperatura y humedad] --> CheckHigh{Temp >= TempMax<br/>o Hum >= HumMax?}
-
-    CheckHigh -- Sí --> CoolerOn[Cooler ON]
-    CheckHigh -- No --> CheckLow{Temp <= TempMax - HistTemp<br/>y Hum <= HumMax - HistHum?}
-
-    CheckLow -- Sí --> CoolerOff[Cooler OFF]
-    CheckLow -- No --> Keep[Zona muerta deadband<br/>mantener estado anterior]
-
-    CoolerOn --> Publish[Publicar medición]
-    CoolerOff --> Publish
-    Keep --> Publish
-```
+[![Diagrama de actividad — ciclo de control](docs/uml/activity_control.svg)](docs/uml/activity_control.puml)
 
 Regla general:
 
@@ -320,63 +295,19 @@ del umbral.
 
 Estado global del bucle que corre en la Raspberry.
 
-```mermaid
-stateDiagram-v2
-    [*] --> Inicializando
-    Inicializando --> ObteniendoConfig: arranque
-
-    ObteniendoConfig --> LeyendoSensor: config activa obtenida
-    ObteniendoConfig --> ErrorConfig: sin conexión / sin config activa
-
-    LeyendoSensor --> Evaluando: lectura válida
-    LeyendoSensor --> ErrorSensor: fallo de lectura DHT
-
-    Evaluando --> Enfriando: supera umbral (relay ON)
-    Evaluando --> Reposo: dentro de rango (relay OFF)
-    Evaluando --> Enfriando: banda muerta y venía enfriando
-    Evaluando --> Reposo: banda muerta y venía en reposo
-
-    Enfriando --> Publicando
-    Reposo --> Publicando
-    ErrorSensor --> Publicando: status CRITICAL / SENSOR_ERROR
-
-    Publicando --> Esperando: POST /api/measurements
-    ErrorConfig --> Esperando: reintento
-
-    Esperando --> ObteniendoConfig: pasó measurementIntervalSeconds
-```
+[![Máquina de estados — ciclo de control](docs/uml/state_control_cycle.svg)](docs/uml/state_control_cycle.puml)
 
 ### Sensor DHT
 
-```mermaid
-stateDiagram-v2
-    [*] --> LecturaOK
-    LecturaOK --> LecturaOK: lectura válida
-    LecturaOK --> Error: timeout / CRC inválido
-    Error --> LecturaOK: lectura válida
-    Error --> Error: sigue fallando (SENSOR_ERROR)
-```
+[![Máquina de estados — sensor DHT](docs/uml/state_sensor.svg)](docs/uml/state_sensor.puml)
 
 ### Relay / Cooler
 
-```mermaid
-stateDiagram-v2
-    [*] --> Apagado
-    Apagado --> Encendido: temp >= tempMax o hum >= humMax
-    Encendido --> Apagado: temp <= tempMax - histTemp y hum <= humMax - histHum
-    Encendido --> Encendido: dentro de la banda muerta (histéresis)
-    Apagado --> Apagado: dentro de la banda muerta (histéresis)
-```
+[![Máquina de estados — relay / cooler](docs/uml/state_relay.svg)](docs/uml/state_relay.puml)
 
 ### OpenPLC
 
-```mermaid
-stateDiagram-v2
-    [*] --> EsperandoDatos
-    EsperandoDatos --> Evaluando: recibe registros Modbus (temp, hum, umbrales)
-    Evaluando --> SalidaActualizada: calcula COOLER_ON / SENSOR_ERROR
-    SalidaActualizada --> EsperandoDatos: el gateway lee los coils
-```
+[![Máquina de estados — OpenPLC](docs/uml/state_openplc.svg)](docs/uml/state_openplc.puml)
 
 ## Modelo de configuración
 
@@ -520,91 +451,14 @@ indica si se persiste — `«document»` son las colecciones de MongoDB (el mode
 una proyección que se calcula en cada request y **no** se persiste, y `«enumeration»` son los
 value-types embebidos. Las flechas punteadas (`..>`) son dependencias lógicas (Mongo no tiene FK).
 
-```mermaid
-classDiagram
-    class Config {
-        <<document · configs>>
-        +id: String
-        +temperatureMin: double
-        +temperatureMax: double
-        +humidityMin: double
-        +humidityMax: double
-        +hysteresisTemperature: double
-        +hysteresisHumidity: double
-        +measurementIntervalSeconds: int
-        +createdByName: String
-        +createdByEmail: String
-        +clientIp: String
-        +userAgent: String
-        +deviceFingerprint: String
-        +active: boolean
-        +createdAt: Instant
-    }
-    class Measurement {
-        <<document · measurements>>
-        +id: String
-        +temperature: double
-        +humidity: double
-        +coolerOn: boolean
-        +relayOn: boolean
-        +status: SystemStatus
-        +createdAt: Instant
-    }
-    class EventAck {
-        <<document · event_acks>>
-        +id: String
-        +ackedAt: Instant
-    }
-    class EventResponse {
-        <<DTO · no se persiste>>
-        +id: String
-        +time: Instant
-        +severity: EventSeverity
-        +type: EventType
-        +ackable: boolean
-        +acknowledged: boolean
-    }
-    class SystemStatus {
-        <<enumeration>>
-        NORMAL
-        WARNING_TEMP
-        WARNING_HUMIDITY
-        CRITICAL
-    }
-    class EventType {
-        <<enumeration>>
-        TEMP_OUT_OF_RANGE
-        HUMIDITY_OUT_OF_RANGE
-        CRITICAL
-        RETURN_TO_NORMAL
-        COOLER_ON
-        COOLER_OFF
-        SENSOR_OFFLINE
-    }
-    class EventSeverity {
-        <<enumeration>>
-        INFO
-        SUCCESS
-        WARNING
-        CRITICAL
-    }
-
-    Config ..> Measurement : umbrales e histeresis<br/>parametrizan cada lectura
-    Measurement --> SystemStatus : status
-    Measurement ..> EventResponse : deriva transiciones
-    EventAck ..> EventResponse : reconoce por id
-    EventResponse --> EventType : type
-    EventResponse --> EventSeverity : severity
-    EventType --> EventSeverity : severidad fija
-```
+[![Diagrama de clases — modelo de datos](docs/uml/class_model.svg)](docs/uml/class_model.puml)
 
 > **Cómo leerlo** — el estereotipo en la cabecera de cada clase dice qué se persiste:
 > `«document» <colección>` (en `Config`, `Measurement`, `EventAck`) son las tres **colecciones de
 > MongoDB** — ese es el modelo de datos. `«DTO» no se persiste` (en `EventResponse`) es una
 > proyección que el backend **arma en cada request** a partir de las mediciones y los ACK; nunca se
 > guarda. `«enumeration»` son value-types embebidos dentro de un documento/DTO, no colecciones.
-> (Se usan estereotipos en vez de color porque GitHub puede ignorar el relleno de color de mermaid,
-> pero el texto del estereotipo siempre se renderiza.)
+> Los documentos van en azul y el DTO en ámbar para reforzar la distinción.
 
 > Sobre los `id`: son `String`, no `UUID`. En `Config` y `Measurement` es el `ObjectId` que genera
 > MongoDB (hex de 24 caracteres); en `EventAck` el `id` **es** el id estable del evento
@@ -621,41 +475,55 @@ classDiagram
 > `relayOn` y `status`. Es una relación de *parametrización* (la config vigente al momento de medir),
 > no de pertenencia.
 
+### Diagrama de objetos (UML)
+
+Un **snapshot de instancias** que ejemplifica el modelo: una `Config` activa, la última `Measurement`
+y el `EventAck` que reconoce el evento derivado de esa medición.
+
+[![Diagrama de objetos](docs/uml/objects.svg)](docs/uml/objects.puml)
+
 ## Arquitectura por capas (UML)
 
 Arquitectura por capas con **una sola dirección de dependencias** (web → service → repository →
 domain). Los controllers no tocan la base; la lógica vive en los services; el acceso a datos está
 detrás de los repositorios de Spring Data.
 
-```mermaid
-flowchart TD
-    subgraph web["web · controllers + DTOs"]
-        CC[ConfigController]
-        MC[MeasurementController]
-        EC[EventController]
-    end
-    subgraph service["service"]
-        CS[ConfigService]
-        MS[MeasurementService]
-        ES[EventService]
-        SS[MeasurementStreamService<br/>SSE]
-    end
-    subgraph repository["repository · Spring Data Mongo"]
-        CR[ConfigRepository]
-        MR[MeasurementRepository]
-        AR[EventAckRepository]
-    end
-    subgraph domain["domain · entities + enums"]
-        Cf[Config]
-        Me[Measurement]
-        Ea[EventAck]
-    end
+[![Diagrama de componentes — capas](docs/uml/components.svg)](docs/uml/components.puml)
 
-    web --> service --> repository --> domain
-    repository --> DB[(MongoDB)]
-    ES -.->|deriva de| MR
-    ES --> AR
-```
+## Diagrama de paquetes (UML)
+
+Organización del código en paquetes y las **dependencias permitidas** (una sola dirección). Formaliza
+la misma regla de capas que el diagrama de componentes, a nivel de estructura de código.
+
+[![Diagrama de paquetes](docs/uml/packages.svg)](docs/uml/packages.puml)
+
+## Diagrama de despliegue (UML)
+
+Topología física de la solución desplegada: los **nodos** (`«device»` / `«executionEnvironment»`)
+alojan **artefactos** (`«artifact»`), y las aristas son **rutas de comunicación** etiquetadas con su
+protocolo. Refleja el despliegue real documentado en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+(Cloudflare Pages + Railway + MongoDB Atlas + la Raspberry con OpenPLC).
+
+[![Diagrama de despliegue](docs/uml/deployment.svg)](docs/uml/deployment.puml)
+
+> La **ley de control vive en OpenPLC** (el controlador): el `gateway.py` es un puente de I/O y de
+> red (lee el DHT22 —que necesita timing que el PLC no hace—, intercambia setpoints y salidas con
+> OpenPLC por Modbus, y sincroniza con el backend). El backend y la base son gestionados y no
+> requieren infraestructura propia encendida.
+
+## Decisiones de arquitectura (ADR)
+
+Las decisiones de arquitectura significativas están registradas como **ADR** (Architecture Decision
+Records) en [`docs/adr/`](docs/adr) — la práctica actual para documentar el *por qué* de las
+decisiones de forma liviana y versionada junto al código:
+
+| ADR | Decisión |
+| --- | --- |
+| [0001](docs/adr/0001-mongodb-document-store.md) | MongoDB como almacén de documentos |
+| [0002](docs/adr/0002-derived-events.md) | Eventos/alarmas derivados (no una colección propia) |
+| [0003](docs/adr/0003-control-law-in-openplc.md) | La ley de control vive en OpenPLC |
+| [0004](docs/adr/0004-managed-deployment.md) | Despliegue gestionado (Atlas + Railway + Cloudflare Pages) |
+| [0005](docs/adr/0005-sensor-offline-by-age.md) | Sensor offline inferido por antigüedad del dato |
 
 ## Seguridad y anti-abuso
 

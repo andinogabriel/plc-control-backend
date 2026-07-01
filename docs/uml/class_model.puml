@@ -1,0 +1,81 @@
+@startuml class_model
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de clases (UML) — modelo de datos: documentos persistidos, DTO derivado y enums.
+title Modelo de datos
+
+class Config <<documento configs>> #E3F2FD {
+  +id : String
+  +temperatureMin : double
+  +temperatureMax : double
+  +humidityMin : double
+  +humidityMax : double
+  +hysteresisTemperature : double
+  +hysteresisHumidity : double
+  +measurementIntervalSeconds : int
+  +createdByName : String
+  +createdByEmail : String
+  +clientIp : String
+  +userAgent : String
+  +deviceFingerprint : String
+  +active : boolean
+  +createdAt : Instant
+}
+
+class Measurement <<documento measurements>> #E3F2FD {
+  +id : String
+  +temperature : double
+  +humidity : double
+  +coolerOn : boolean
+  +relayOn : boolean
+  +status : SystemStatus
+  +createdAt : Instant
+}
+
+class EventAck <<documento event_acks>> #E3F2FD {
+  +id : String
+  +ackedAt : Instant
+}
+
+class EventResponse <<DTO no se persiste>> #FFF3E0 {
+  +id : String
+  +time : Instant
+  +severity : EventSeverity
+  +type : EventType
+  +ackable : boolean
+  +acknowledged : boolean
+}
+
+enum SystemStatus {
+  NORMAL
+  WARNING_TEMP
+  WARNING_HUMIDITY
+  CRITICAL
+}
+
+enum EventType {
+  TEMP_OUT_OF_RANGE
+  HUMIDITY_OUT_OF_RANGE
+  CRITICAL
+  RETURN_TO_NORMAL
+  COOLER_ON
+  COOLER_OFF
+  SENSOR_OFFLINE
+}
+
+enum EventSeverity {
+  INFO
+  SUCCESS
+  WARNING
+  CRITICAL
+}
+
+Config ..> Measurement : umbrales e histeresis\nparametrizan cada lectura
+Measurement --> SystemStatus : status
+Measurement ..> EventResponse : deriva transiciones
+EventAck ..> EventResponse : reconoce por id
+EventResponse --> EventType : type
+EventResponse --> EventSeverity : severity
+EventType --> EventSeverity : severidad fija
+@enduml

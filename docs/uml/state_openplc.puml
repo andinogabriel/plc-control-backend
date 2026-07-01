@@ -1,0 +1,12 @@
+@startuml state_openplc
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de maquina de estados (UML) — OpenPLC.
+title OpenPLC
+
+[*] --> EsperandoDatos
+EsperandoDatos --> Evaluando : recibe registros Modbus (temp, hum, umbrales)
+Evaluando --> SalidaActualizada : calcula COOLER_ON / SENSOR_ERROR
+SalidaActualizada --> EsperandoDatos : el gateway lee los coils
+@enduml

@@ -1,0 +1,37 @@
+@startuml deployment
+!theme cerulean-outline
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+' Diagrama de despliegue (UML) — nodos (device / executionEnvironment), artefactos y rutas de comunicacion.
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+}
+
+node "PC del operador" <<device>> as PC {
+  artifact "SPA React\n(corriendo en el navegador)" as SPA
+}
+node "Cloudflare Pages (CDN)" <<executionEnvironment>> as CF {
+  artifact "dist/ (HTML/JS/CSS)" as DIST
+}
+node "Railway (contenedor Docker)" <<executionEnvironment>> as RW {
+  artifact "control-system-backend.jar\nSpring Boot / JRE 25" as JAR
+}
+node "MongoDB Atlas (M0)" <<executionEnvironment>> as ATLAS {
+  database "controlsystem" as DB
+}
+node "Raspberry Pi 3B+\nRaspberry Pi OS 32-bit" <<device>> as RPI {
+  artifact "gateway.py (Python)" as GW
+  artifact "OpenPLC_v3 (control)" as PLC
+}
+node "Sensor DHT22" <<device>> as DHT
+node "Relay + Cooler" <<device>> as RLY
+
+PC --> CF : HTTPS (descarga la SPA)
+SPA --> JAR : HTTPS · REST + SSE
+JAR --> DB : mongodb+srv · TLS
+GW --> JAR : HTTPS · REST (config / mediciones)
+GW <--> PLC : Modbus TCP
+GW --> DHT : GPIO (lee temp/humedad)
+PLC --> RLY : GPIO (acciona)
+@enduml
