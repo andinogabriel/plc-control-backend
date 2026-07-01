@@ -75,6 +75,20 @@ comportamiento):
 > *diagrama de arquitectura general* es un diagrama de contexto (no UML), incluido para dar el
 > panorama antes de las vistas formales.
 
+### Versiones en notación estricta (PlantUML)
+
+Para las vistas donde Mermaid no tiene notación nativa, se incluye además la versión en **PlantUML**
+con la notación UML formal (actores/óvalos, nodos 3D, artefactos, estereotipos). El fuente editable
+está en [`docs/uml/`](docs/uml) (`.puml`, exportable desde cualquier herramienta PlantUML).
+
+| Casos de uso | Actividad (control) |
+| --- | --- |
+| [![Casos de uso](docs/uml/use_cases.svg)](docs/uml/use_cases.puml) | [![Actividad](docs/uml/activity_control.svg)](docs/uml/activity_control.puml) |
+
+| Componentes (capas) | Despliegue |
+| --- | --- |
+| [![Componentes](docs/uml/components.svg)](docs/uml/components.puml) | [![Despliegue](docs/uml/deployment.svg)](docs/uml/deployment.puml) |
+
 ## Arquitectura general
 
 ```mermaid

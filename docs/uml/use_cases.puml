@@ -1,0 +1,31 @@
+@startuml use_cases
+' Diagrama de casos de uso (UML) — notacion nativa: actores + frontera del sistema + asociaciones.
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+
+actor "Administrador" as Admin
+actor "Raspberry / Gateway" as RPi
+
+rectangle "Sistema de Control PLC" {
+  usecase "Configurar umbrales,\nhisteresis e intervalo" as UC1
+  usecase "Ver estado actual" as UC2
+  usecase "Consultar historial\nde mediciones" as UC3
+  usecase "Consultar historial\nde configuraciones" as UC4
+  usecase "Consultar eventos\ny alarmas" as UC5
+  usecase "Reconocer alarma (ACK)" as UC6
+  usecase "Consultar estado\ndel sensor" as UC7
+  usecase "Publicar medicion" as UC8
+  usecase "Obtener configuracion\nactiva" as UC9
+}
+
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+RPi --> UC8
+RPi --> UC9
+@enduml
