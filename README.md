@@ -373,7 +373,8 @@ publica una medición. Es parte de la configuración versionada, así que se set
 frontend junto con los umbrales y queda auditado (quién lo cambió y cuándo).
 
 * **Valor por defecto:** 30 segundos.
-* **Rango permitido:** 5 a 1800 segundos (media hora), validado en el backend.
+* **Rango permitido:** 4 a 1800 segundos (media hora), validado en el backend. El mínimo de 4 s
+  respeta el límite de muestreo del DHT22 (~2 s) con margen y evita saturar de llamadas al backend.
 * La Raspberry obtiene este valor en `GET /api/config/latest` y lo usa como cadencia de su
   bucle. Al cambiarlo desde la web, la próxima vez que la Raspberry relea la config, ajusta
   el intervalo sin necesidad de redeploy.
