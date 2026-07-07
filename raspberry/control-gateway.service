@@ -1,0 +1,39 @@
+# systemd unit para correr el gateway real de la Raspberry (Camino 1) de forma desatendida.
+#
+# El gateway es solo I/O de campo: la ley de control corre en OpenPLC (control_histeresis.st).
+# Depende de pigpiod (DHT22 + rele) y del runtime de OpenPLC (Modbus TCP :502).
+#
+# Instalacion (en la Raspberry, usuario admin):
+#   1. cp gateway.py /home/admin/gateway.py
+#   2. cp gateway.env.example /home/admin/gateway.env   # y completa API_BASE si hace falta
+#   3. sudo cp control-gateway.service /etc/systemd/system/
+#   4. sudo systemctl daemon-reload
+#   5. sudo systemctl enable --now control-gateway.service
+#   Logs en vivo:  journalctl -u control-gateway -f
+
+[Unit]
+Description=Control System - gateway de la Raspberry (DHT22 -> OpenPLC -> backend)
+# Necesita red + reloj NTP (TLS al backend HTTPS) y el daemon pigpio.
+Wants=network-online.target
+After=network-online.target time-sync.target pigpiod.service
+Requires=pigpiod.service
+# Si crashea mas de 5 veces en 60 s, dejar de reintentar (evita martillar el backend).
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin
+EnvironmentFile=-/home/admin/gateway.env
+ExecStart=/usr/bin/python3 /home/admin/gateway.py
+Restart=always
+RestartSec=5
+# SIGTERM al parar + 15 s para apagar el rele/cooler antes del SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
