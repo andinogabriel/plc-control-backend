@@ -181,6 +181,51 @@ class EventServiceTest {
     }
 
     @Test
+    void autoResolvesTransientExcursionsButKeepsTheActiveOne() {
+        final Instant base = Instant.now().minusSeconds(600);
+        when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
+            at("1", base, SystemStatus.NORMAL, false),
+            at("2", base.plusSeconds(60), SystemStatus.WARNING_TEMP, false),      // transient: recovers below
+            at("3", base.plusSeconds(120), SystemStatus.NORMAL, false),
+            at("4", base.plusSeconds(180), SystemStatus.WARNING_HUMIDITY, false)  // still active (no later NORMAL)
+        ));
+        when(eventAckRepository.findAllById(anyIterable())).thenReturn(List.of());
+
+        // Only the still-active excursion counts; the one that returned to normal is auto-resolved.
+        assertThat(eventService.countUnacknowledged(null, null)).isEqualTo(1);
+    }
+
+    @Test
+    void autoResolvesEveryExcursionOnceTheSystemHasRecovered() {
+        final Instant base = Instant.now().minusSeconds(600);
+        when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
+            at("1", base, SystemStatus.NORMAL, false),
+            at("2", base.plusSeconds(60), SystemStatus.WARNING_TEMP, false),
+            at("3", base.plusSeconds(120), SystemStatus.CRITICAL, false),
+            at("4", base.plusSeconds(180), SystemStatus.NORMAL, false)            // recovered → both resolved
+        ));
+
+        assertThat(eventService.countUnacknowledged(null, null)).isEqualTo(0);
+    }
+
+    @Test
+    void marksAResolvedExcursionAcknowledgedInTheLog() {
+        final Instant base = Instant.now().minusSeconds(600);
+        when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(
+            at("1", base, SystemStatus.NORMAL, false),
+            at("2", base.plusSeconds(60), SystemStatus.WARNING_TEMP, false),
+            at("3", base.plusSeconds(120), SystemStatus.NORMAL, false)
+        ));
+        when(eventAckRepository.findAllById(anyIterable())).thenReturn(List.of());
+
+        final PageResponse<EventResponse> page = eventService.getEvents(null, null, PageRequest.of(0, 20));
+
+        final EventResponse alarm = page.content().stream()
+            .filter(e -> e.id().equals("2-s")).findFirst().orElseThrow();
+        assertThat(alarm.acknowledged()).isTrue(); // auto-resolved: still logged, but no operator ACK needed
+    }
+
+    @Test
     void noSensorOfflineAlarmForHistoricalWindowWithExplicitTo() {
         final Instant stale = Instant.now().minusSeconds(OFFLINE_AFTER_SECONDS * 2);
         when(measurementRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(any(), any())).thenReturn(List.of(

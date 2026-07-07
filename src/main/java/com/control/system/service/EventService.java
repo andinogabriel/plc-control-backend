@@ -119,7 +119,12 @@ public class EventService {
     }
 
     private static List<String> ackableIds(final List<EventResponse> events) {
-        return events.stream().filter(EventResponse::ackable).map(EventResponse::id).toList();
+        // Auto-resolved (transient) alarms come back already acknowledged, so they neither count
+        // toward the badge nor get re-acked by "acknowledge all" — only still-active ones do.
+        return events.stream()
+            .filter(e -> e.ackable() && !e.acknowledged())
+            .map(EventResponse::id)
+            .toList();
     }
 
     private Set<String> ackedAmong(final List<String> ids) {
@@ -136,13 +141,28 @@ public class EventService {
      * sample has no predecessor, so it never emits an event.
      */
     static List<EventResponse> deriveEvents(final List<Measurement> measurements) {
+        // A transient excursion is one the system already recovered from: its alarm stays in the log
+        // but is auto-resolved (marked acknowledged) so it no longer demands operator action. The
+        // boundary is the last NORMAL reading — an alarm before it has a later return to normal;
+        // only alarms after it (i.e. the currently active excursion, if any) stay open.
+        Instant lastNormalTime = null;
+        for (final Measurement m : measurements) {
+            if (m.getStatus() == SystemStatus.NORMAL) {
+                lastNormalTime = m.getCreatedAt();
+            }
+        }
+
         final List<EventResponse> events = new ArrayList<>();
         SystemStatus prevStatus = null;
         Boolean prevCooler = null;
 
         for (final Measurement m : measurements) {
             if (prevStatus != null && m.getStatus() != prevStatus) {
-                events.add(EventResponse.of(m.getId() + "-s", m.getCreatedAt(), statusEventType(m.getStatus())));
+                EventResponse event = EventResponse.of(m.getId() + "-s", m.getCreatedAt(), statusEventType(m.getStatus()));
+                if (event.ackable() && lastNormalTime != null && event.time().isBefore(lastNormalTime)) {
+                    event = event.withAcknowledged(true);
+                }
+                events.add(event);
             }
             if (prevCooler != null && m.isCoolerOn() != prevCooler) {
                 events.add(EventResponse.of(m.getId() + "-c", m.getCreatedAt(),
