@@ -2,15 +2,16 @@
 !theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-' Diagrama de secuencia (UML) — configuracion, bucle de control y monitoreo.
+' Diagrama de secuencia (UML) — configuracion, lazo de control (decision en OpenPLC) y monitoreo.
 title Que hace el sistema
 
 actor "Usuario (admin)" as U
 participant "Frontend React" as FE
 participant "Backend\nSpring Boot" as API
 database "MongoDB" as DB
-participant "Raspberry\n(Python + DHT)" as RPi
-participant "Relay + Cooler" as HW
+participant "Gateway Python\n(Raspberry Pi)" as GW
+participant "OpenPLC\n(programa ST)" as PLC
+participant "Relay + Cooler\n(GPIO14)" as HW
 
 == 1) Configuracion de umbrales (con auditoria) ==
 U -> FE : Define tempMin/Max, humMin/Max, histeresis, intervalo
@@ -18,17 +19,17 @@ FE -> API : POST /api/config
 API -> DB : Guarda config activa (quien, email, cuando, IP)
 API --> FE : 201 Created
 
-== 2) Bucle de control en la Raspberry ==
-loop cada measurementIntervalSeconds
-  RPi -> API : GET /api/config/latest
-  API --> RPi : Umbrales + histeresis + intervalo
-  RPi -> RPi : Lee sensor DHT (temperatura, humedad)
-  alt supera umbral (aplicando histeresis)
-    RPi -> HW : Enciende cooler (relay ON)
-  else dentro de rango
-    RPi -> HW : Apaga cooler (relay OFF)
-  end
-  RPi -> API : POST /api/measurements (temp, hum, coolerOn, status)
+== 2) Lazo de control (la decision vive en OpenPLC) ==
+loop cada measurementIntervalSeconds (min 4 s)
+  GW -> GW : Lee sensor DHT22 (pigpio, GPIO4)
+  GW -> API : GET /api/config/latest
+  API --> GW : Umbrales + histeresis + intervalo
+  GW -> PLC : Modbus TCP: escribe HR0..HR5\n(temp, hum, umbralOFF, umbralON, humMin, humMax)
+  PLC -> PLC : Histeresis + anti-ciclado (TON 15 s)\n+ fail-safe (banda invalida)
+  GW -> PLC : Modbus TCP: lee coil 0 (cooler)\ny HR10 (palabra de estado)
+  PLC --> GW : Decision del controlador
+  GW -> HW : Acciona relay segun el coil\n(GPIO14, activo-alto)
+  GW -> API : POST /api/measurements (temp, hum, coolerOn, status)
   API -> DB : Persiste la medicion (historial)
 end
 

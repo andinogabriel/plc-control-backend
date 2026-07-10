@@ -2,11 +2,34 @@
 !theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-' Diagrama de maquina de estados (UML) — OpenPLC.
-title OpenPLC
+' Diagrama de maquina de estados (UML) — controlador en OpenPLC (control_histeresis.st).
+' Estado (HR10): 0=Reposo, 1=Enfriando, 2=EsperaAntiCiclado, 3=FailSafe.
+title OpenPLC — controlador on-off con banda muerta
 
-[*] --> EsperandoDatos
-EsperandoDatos --> Evaluando : recibe registros Modbus (temp, hum, umbrales)
-Evaluando --> SalidaActualizada : calcula COOLER_ON / SENSOR_ERROR
-SalidaActualizada --> EsperandoDatos : el gateway lee los coils
+[*] --> FailSafe : arranque (registros en 0)
+FailSafe : cooler = OFF
+FailSafe : Estado = 3
+FailSafe --> Reposo : banda valida (umbralON > umbralOFF)
+
+Reposo : cooler = OFF
+Reposo : Estado = 0
+Enfriando : cooler = ON
+Enfriando : Estado = 1
+EsperaAntiCiclado : mantiene la salida
+EsperaAntiCiclado : Estado = 2
+
+Reposo --> Enfriando : temp >= umbralON\ny min OFF cumplido (TON 15 s)
+Reposo --> EsperaAntiCiclado : temp >= umbralON\ny min OFF NO cumplido
+Enfriando --> Reposo : temp <= umbralOFF\ny min ON cumplido (TON 15 s)
+Enfriando --> EsperaAntiCiclado : temp <= umbralOFF\ny min ON NO cumplido
+EsperaAntiCiclado --> Enfriando : timer cumplido y temp >= umbralON
+EsperaAntiCiclado --> Reposo : timer cumplido y temp <= umbralOFF
+
+Reposo --> FailSafe : banda invalida
+Enfriando --> FailSafe : banda invalida
+
+legend bottom
+  umbralON = temperatureMax · umbralOFF = temperatureMax - hysteresisTemperature
+  (el gateway traduce la config del backend y la escribe por Modbus)
+endlegend
 @enduml
