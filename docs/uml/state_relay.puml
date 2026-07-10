@@ -2,12 +2,15 @@
 !theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-' Diagrama de maquina de estados (UML) — relay / cooler con histeresis.
-title Relay / Cooler
+' Diagrama de maquina de estados (UML) — relay/cooler comandado por la bobina de OpenPLC.
+title Relay / Cooler (GPIO14, activo-alto)
 
 [*] --> Apagado
-Apagado --> Encendido : temp >= tempMax o hum >= humMax
-Encendido --> Apagado : temp <= tempMax - histTemp y hum <= humMax - histHum
-Encendido --> Encendido : dentro de la banda muerta (histeresis)
-Apagado --> Apagado : dentro de la banda muerta (histeresis)
+Apagado : GPIO14 = 0
+Encendido : GPIO14 = 1
+Apagado --> Encendido : coil 0 = TRUE\n(OpenPLC: temp >= umbralON,\nmin OFF cumplido)
+Encendido --> Apagado : coil 0 = FALSE\n(OpenPLC: temp <= umbralOFF,\nmin ON cumplido)
+Encendido --> Encendido : coil sin cambio\n(banda muerta / anti-ciclado)
+Apagado --> Apagado : coil sin cambio\n(banda muerta / anti-ciclado)
+Encendido --> Apagado : apagado seguro\n(gateway se detiene)
 @enduml

@@ -21,8 +21,9 @@ node "MongoDB Atlas (M0)" <<executionEnvironment>> as ATLAS {
   database "controlsystem" as DB
 }
 node "Raspberry Pi 3B+\nRaspberry Pi OS 32-bit" <<device>> as RPI {
-  artifact "gateway.py (Python)" as GW
-  artifact "OpenPLC_v3 (control)" as PLC
+  artifact "gateway.py\n(systemd: control-gateway)" as GW
+  artifact "OpenPLC_v3 runtime\n(control_histeresis.st)" as PLC
+  artifact "pigpiod\n(daemon GPIO)" as PIG
 }
 node "Sensor DHT22" <<device>> as DHT
 node "Relay + Cooler" <<device>> as RLY
@@ -31,9 +32,10 @@ PC --> CF : HTTPS (descarga la SPA)
 SPA --> JAR : HTTPS · REST + SSE
 JAR --> DB : mongodb+srv · TLS
 GW --> JAR : HTTPS · REST (config / mediciones)
-GW <--> PLC : Modbus TCP
-GW --> DHT : GPIO (lee temp/humedad)
-PLC --> RLY : GPIO (acciona)
+GW <--> PLC : Modbus TCP :502\n(HR0..5 entradas · coil 0 + HR10 salidas)
+GW --> PIG : socket local
+PIG --> DHT : GPIO4 (lee temp/humedad)
+PIG --> RLY : GPIO14 (acciona, activo-alto)
 
 legend right
   |= Estereotipo |= Significado |

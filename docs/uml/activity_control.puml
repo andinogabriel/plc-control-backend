@@ -2,24 +2,37 @@
 !theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-' Diagrama de actividad (UML) — ciclo de control con histeresis que corre en el controlador.
-title Ciclo de control con histeresis
+' Diagrama de actividad (UML) — ley de control que ejecuta OpenPLC en cada scan (20 ms).
+title Ley de control (OpenPLC, control_histeresis.st)
 
 start
-:Leer temperatura y humedad (DHT22);
-:Obtener configuracion activa\n(GET /api/config/latest);
+:Leer registros Modbus\n(temp, umbralOFF, umbralON);
+if (banda valida?\n(umbralON > umbralOFF)) then (no)
+  :cooler := FALSE;\nEstado := 3 (fail-safe);
+  stop
+else (si)
+endif
 
-if (Temp >= tempMax  o  Hum >= humMax ?) then (si)
-  :Encender cooler\n(relay ON);
-else (no)
-  if (Temp <= tempMax - histTemp\ny Hum <= humMax - histHum ?) then (si)
-    :Apagar cooler\n(relay OFF);
+if (cooler encendido?) then (si)
+  if (temp <= umbralOFF\ny min ON cumplido (TON 15 s)?) then (si)
+    :cooler := FALSE;\nEstado := 0 (reposo);
   else (no)
-    :Mantener estado anterior\n(zona muerta / histeresis);
+    :mantiene ON;\nEstado := 1 o 2 (anti-ciclado);
+  endif
+else (no)
+  if (temp >= umbralON\ny min OFF cumplido (TON 15 s)?) then (si)
+    :cooler := TRUE;\nEstado := 1 (enfriando);
+  else (no)
+    :mantiene OFF;\nEstado := 0 o 2 (anti-ciclado);
   endif
 endif
 
-:Publicar medicion\n(POST /api/measurements);
-:Esperar measurementIntervalSeconds;
+:Expone coil 0 (cooler)\ny HR10 (Estado) por Modbus;
+note right
+  umbralON  = temperatureMax
+  umbralOFF = temperatureMax - histTemp
+  El gateway escribe las entradas y
+  acciona el relay con la decision.
+end note
 stop
 @enduml
