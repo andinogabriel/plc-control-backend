@@ -2,7 +2,7 @@
 !theme plain
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-' Diagrama de maquina de estados (UML) — controlador en OpenPLC (control_histeresis.st).
+' Diagrama de maquina de estados (UML) — controlador en OpenPLC (programa Ladder).
 ' Estado (HR10): 0=Reposo, 1=Enfriando, 2=EsperaAntiCiclado, 3=FailSafe.
 title OpenPLC — controlador on-off con banda muerta
 

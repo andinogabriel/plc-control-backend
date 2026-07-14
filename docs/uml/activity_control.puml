@@ -3,7 +3,7 @@
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 ' Diagrama de actividad (UML) — ley de control que ejecuta OpenPLC en cada scan (20 ms).
-title Ley de control (OpenPLC, control_histeresis.st)
+title Ley de control (OpenPLC, programa Ladder)
 
 start
 :Leer registros Modbus\n(temp, umbralOFF, umbralON);
