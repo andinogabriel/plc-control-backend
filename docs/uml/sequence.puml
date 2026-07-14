@@ -10,7 +10,7 @@ participant "Frontend React" as FE
 participant "Backend\nSpring Boot" as API
 database "MongoDB" as DB
 participant "Gateway Python\n(Raspberry Pi)" as GW
-participant "OpenPLC\n(programa ST)" as PLC
+participant "OpenPLC\n(programa Ladder)" as PLC
 participant "Relay + Cooler\n(GPIO14)" as HW
 
 == 1) Configuracion de umbrales (con auditoria) ==
