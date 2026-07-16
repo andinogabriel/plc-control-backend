@@ -38,6 +38,23 @@ Mismas direcciones Modbus que el `.st` de referencia (ver [`../README.md`](../RE
 diferencia funcional: esta versión **no computa la palabra `Estado` (`%QW10`)**, que era sólo
 telemetría de log local en el gateway y no se envía al backend/frontend.
 
+## Alcance del control: sólo temperatura (la humedad es monitoreo)
+
+El lazo **actúa únicamente sobre la temperatura**. Los registros de humedad (`Hum` `%QW1`,
+`HumMin` `%QW4`, `HumMax` `%QW5`) se **leen y publican como telemetría**, pero **ningún rung los
+usa**: las tres comparaciones del programa (`GE`/`LE`) operan sólo sobre `Temp`, `TempMin` y
+`TempMax`.
+
+El motivo es físico: en este trabajo el **único actuador es un cooler**, que actúa sobre la
+temperatura. **No contábamos con un humidificador ni deshumidificador**, así que la humedad no
+tiene ningún elemento final que pueda modificarla — no sería un lazo de control sino una lectura sin
+acción. Por eso la humedad se **mide y se alarma si sale de rango** (en la web), pero **no
+realimenta el control**.
+
+Los registros `HumMin`/`HumMax` quedan en el mapa Modbus para tener un **contrato completo** y poder
+sumar en el futuro un actuador de humedad (deshumidificador) sin rehacer el mapa; hoy son
+telemetría, no variables de control.
+
 ## Compilar el Ladder a `.st`
 
 El XML PLCopen se compila con la herramienta `xml2st` que trae OpenPLC Editor:
